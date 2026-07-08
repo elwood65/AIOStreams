@@ -17,6 +17,7 @@ import {
 } from '../settings/_components/settings-submit-button';
 import type { SettingsKey } from '../settings/queries';
 import { SettingsActionsMenu } from '../settings/_components/settings-actions-menu';
+import MarkdownLite from '@/components/shared/markdown-lite';
 import {
   useUsenetSettings,
   useSaveUsenetSettings,
@@ -53,7 +54,7 @@ const SECTIONS: { title: string; leaves: string[]; note?: string }[] = [
   {
     title: 'Performance',
     leaves: [PROFILE_LEAF, ...BUNDLED_LEAVES],
-    note: 'Pick a profile to fill in the values below with sensible defaults — editing any of them switches the profile to “custom”. The active profile is what the engine actually uses.',
+    note: 'Pick a profile and the values below are filled in for you — that is all most setups need. Editing any of the values switches the profile to **custom**.',
   },
   {
     title: 'Connections & timeouts',
@@ -82,11 +83,9 @@ const SECTIONS: { title: string; leaves: string[]; note?: string }[] = [
       'censusMaxLifetime',
     ],
     note:
-      'Before a stream URL is minted, AIOStreams runs checks so dead or incomplete releases fail upfront instead of mid-playback: ' +
-      '(1) a per-file probe body-fetches the first segment of each file to identify the content and catch missing or undecodable files; ' +
-      '(2) a census audits every data segment of the release with cheap STAT existence probes, running alongside the import so it adds no latency — badly damaged releases fail the import, lightly damaged ones import as “degraded” (per the damage policy) and are zero-filled during playback, and whatever the import window did not cover finishes in the background. ' +
-      'That background tail runs at the census background concurrency below and is bounded by the census max lifetime. ' +
-      'Providers whose STAT answers prove untrustworthy (gateways that claim articles they cannot deliver) are excluded from census evidence automatically, and a provider that keeps missing a release during playback is demoted so a healthy one serves it.',
+      'When something is imported, AIOStreams checks that it can actually be downloaded from your providers — so broken or incomplete releases are caught up front instead of failing mid-playback. ' +
+      'The checks run alongside the import, so they normally add no waiting time: badly damaged releases are rejected, slightly damaged ones can still play (the damage policy below decides), and any checking that did not finish during the import simply continues in the background. ' +
+      'Providers that give unreliable answers are detected and ignored automatically.',
   },
   {
     title: 'Import & API',
@@ -233,7 +232,7 @@ export function UsenetSettingsPage() {
       <div className="flex items-start justify-between gap-2">
         <SettingsPageHeader
           title="Settings"
-          description="Native NNTP engine configuration"
+          description="Configuration for the built-in usenet engine"
           icon={BiCog}
         />
         <div className="pt-1">
@@ -297,7 +296,7 @@ export function UsenetSettingsPage() {
                 <SettingsCard key={g.title} title={g.title}>
                   {g.note && (
                     <p className="text-xs text-[--muted] -mt-1 mb-1">
-                      {g.note}
+                      <MarkdownLite>{g.note}</MarkdownLite>
                     </p>
                   )}
                   {g.keys.map((k) => (

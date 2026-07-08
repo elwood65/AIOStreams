@@ -143,8 +143,8 @@ export function UsenetLayout() {
       <div>
         <h2>Usenet</h2>
         <p className="text-[--muted]">
-          Native NNTP engine — library, live activity, provider performance and
-          configuration.
+          The built-in usenet engine — your library, live activity, provider
+          performance and settings.
         </p>
       </div>
 
