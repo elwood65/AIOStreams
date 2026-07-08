@@ -243,12 +243,20 @@ function AddNzb() {
         size="md"
       />
       <SimpleDropzone
-        accept={NZB_ACCEPT as any}
+        accept={NZB_ACCEPT}
         multiple
         className="min-h-[120px] w-full"
         dropzoneText="Drop .nzb files here, or click to choose"
         onValueChange={(files) => {
           if (files.length) void onFiles(files);
+        }}
+        onDropRejected={(rejections) => {
+          const names = rejections.map((r) => r.file.name);
+          toast.error(
+            names.length === 1
+              ? `"${names[0]}" isn't a .nzb file`
+              : `${names.length} files skipped, only .nzb files are supported`
+          );
         }}
       />
       {progress && (
