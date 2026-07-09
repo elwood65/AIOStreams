@@ -136,6 +136,19 @@ export const usenetSchema = {
     secret: false,
     ui: HIDDEN,
   },
+  maxConcurrentInspects: {
+    schema: nonNegativeInt,
+    default: 4,
+    label: 'Max concurrent imports',
+    description:
+      'How many NZB imports may run at the same time. ' +
+      'Extra imports wait in a queue, and playback-triggered imports are ' +
+      'served before background adds. **0** removes the limit.',
+    env: 'USENET_MAX_CONCURRENT_INSPECTS',
+    requiresRestart: false,
+    secret: false,
+    ui: HIDDEN,
+  },
   prefetchSegments: {
     schema: positiveInt,
     default: 32,

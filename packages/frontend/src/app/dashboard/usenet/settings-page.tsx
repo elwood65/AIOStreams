@@ -89,7 +89,7 @@ const SECTIONS: { title: string; leaves: string[]; note?: string }[] = [
   },
   {
     title: 'Import & API',
-    leaves: ['maxNzbSize', 'sabnzbdApiEnabled'],
+    leaves: ['maxNzbSize', 'maxConcurrentInspects', 'sabnzbdApiEnabled'],
   },
 ];
 

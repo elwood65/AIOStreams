@@ -24,6 +24,7 @@ import {
   TaskManager,
   drainUsenetMetrics,
   pruneUsenetMetrics,
+  requeueInterruptedInspects,
   flushAllDiskCaches,
 } from '@aiostreams/core';
 
@@ -190,6 +191,7 @@ async function start() {
     registerPruneTask();
     registerCacheTasks();
     registerUsenetTasks();
+    void requeueInterruptedInspects();
     await initialiseAuth();
     startAnalytics();
     const server = app.listen(appConfig.bootstrap.port, (error) => {

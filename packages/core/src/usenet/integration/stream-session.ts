@@ -34,7 +34,7 @@ import {
 import { type UsenetStreamToken, decodeUsenetStreamToken } from './tokens.js';
 import { friendlyUsenetError } from './errors.js';
 import { usenetEngineRegistry, getUsenetEngineConfig } from './engine.js';
-import { fetchNzb, parseNzbCached } from './library.js';
+import { fetchNzb, parseNzbCached, canonicaliseNzbHash } from './library.js';
 
 const logger = createLogger('usenet/stream');
 
@@ -363,13 +363,17 @@ async function getStreamSession(
     // multi-MB NZB twice per playback is pure waste.
     const nzb = await parseNzbCached(decoded.hash, xml);
     const parsedAt = Date.now();
+    // tokens minted before the content-hash rekey carry a search-time
+    // hash. Every library read/write below
+    // must use the canonical hash or it would patch/poison a stray row.
+    const hash = await canonicaliseNzbHash(decoded.hash, nzb, decoded.nzb);
     const engine = usenetEngineRegistry.get(providers, options);
     // Fetched up-front: seeds the hole hooks (persisted hole map → replay
     // pre-pad) and provides addedAt for Last-Modified below.
-    const entry = await UsenetLibraryRepository.get(decoded.hash).catch(
+    const entry = await UsenetLibraryRepository.get(hash).catch(
       () => undefined
     );
-    const holeHooks = holeHooksFor(decoded.hash, decoded, entry, key);
+    const holeHooks = holeHooksFor(hash, decoded, entry, key);
 
     let stream: SeekableStream | undefined;
     let filename = decoded.filename;
@@ -379,11 +383,11 @@ async function getStreamSession(
       // encrypted-7z AES+LZMA decode that makes cold opens of large password 7z
       // packs slow). Any miss/failure falls back to a full parse open.
       if (decoded.innerPath) {
-        const layout = await loadArchiveLayout(decoded.hash, decoded.innerPath);
+        const layout = await loadArchiveLayout(hash, decoded.innerPath);
         if (layout) {
           try {
             const hooks = hasPendingFragments(layout.target)
-              ? lazyHooksFor(decoded.hash, decoded.innerPath, layout, key)
+              ? lazyHooksFor(hash, decoded.innerPath, layout, key)
               : undefined;
             stream = await engine.openArchiveStreamFromLayout(
               nzb,
@@ -396,7 +400,7 @@ async function getStreamSession(
           } catch (err) {
             logger.warn(
               {
-                hash: decoded.hash,
+                hash,
                 innerPath: decoded.innerPath,
                 err: (err as Error)?.message,
               },
@@ -441,7 +445,7 @@ async function getStreamSession(
       ) {
         const friendly = friendlyUsenetError(err);
         UsenetLibraryRepository.markFailed(
-          decoded.hash,
+          hash,
           friendly.reason,
           decoded.filename,
           friendly.code
@@ -468,7 +472,7 @@ async function getStreamSession(
     const openedAt = Date.now();
     logger.debug(
       {
-        hash: decoded.hash,
+        hash,
         filename,
         size: session.size,
         grabMs: grabbedAt - startedAt,

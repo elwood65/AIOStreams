@@ -270,7 +270,8 @@ router.get('/library', async (req, res, next) => {
 // GET /dashboard/usenet/library/:hash/files — file/folder tree for browsing.
 router.get('/library/:hash/files', async (req, res, next) => {
   try {
-    const entry = await UsenetLibraryRepository.get(req.params.hash);
+    const entry = (await UsenetLibraryRepository.getResolved(req.params.hash))
+      ?.entry;
     if (!entry) {
       return res.status(404).json(
         createResponse({
@@ -445,7 +446,10 @@ router.delete('/library', async (_req, res, next) => {
 // DELETE /dashboard/usenet/library/:hash — remove one entry.
 router.delete('/library/:hash', async (req, res, next) => {
   try {
-    await UsenetLibraryRepository.delete(req.params.hash);
+    const resolved = await UsenetLibraryRepository.getResolved(req.params.hash);
+    await UsenetLibraryRepository.delete(
+      resolved?.entry.nzbHash ?? req.params.hash
+    );
     res
       .status(200)
       .json(createResponse({ success: true, data: { deleted: true } }));

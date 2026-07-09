@@ -172,7 +172,7 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
       seenNzbs.add(nzbUrl);
 
       const zyclopsHealth = result.newznab?.zyclopsHealth?.toString();
-      const md5 = result.newznab?.infohash?.toString() || hashNzbUrl(nzbUrl);
+      const md5 = hashNzbUrl(nzbUrl);
 
       let date = result.pubDate?.toString();
       if (typeof result.newznab?.usenetdate === 'string') {
