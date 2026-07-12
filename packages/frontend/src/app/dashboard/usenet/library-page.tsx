@@ -19,6 +19,7 @@ import {
   BiSortUp,
   BiSortDown,
   BiCloudUpload,
+  BiBlock,
 } from 'react-icons/bi';
 import { Card } from '@/components/ui/card';
 import { Button, IconButton } from '@/components/ui/button';
@@ -31,6 +32,7 @@ import {
   PaginationEllipsis,
   PaginationItem,
   PaginationTrigger,
+  pageWindow,
 } from '@/components/ui/pagination';
 import { cn } from '@/components/ui/core/styling';
 import { useDebounce } from '@/hooks/debounce';
@@ -43,12 +45,14 @@ import {
 import {
   useUsenetLibrary,
   useUsenetLibraryStream,
+  useBlockRelease,
   useDeleteLibraryEntry,
   useDeleteAllLibraryEntries,
   useAddNzb,
   useUploadNzb,
   usePlayUrl,
   usenetNzbExportUrl,
+  releaseBlocklistKeys,
   type LibraryEntry,
   type LibraryStatus,
   type LibrarySort,
@@ -138,25 +142,6 @@ function ViewToggle({
       {item('list', <BiListUl />, 'List view')}
     </div>
   );
-}
-
-/**
- * Windowed page list for the Pagination primitive: first, last, the current
- * page ±1, with `'…'` markers for the gaps. e.g. `[1, '…', 4, 5, 6, '…', 20]`.
- */
-function pageWindow(current: number, total: number): (number | '…')[] {
-  const pages = new Set<number>([1, total, current - 1, current, current + 1]);
-  const sorted = [...pages]
-    .filter((p) => p >= 1 && p <= total)
-    .sort((a, b) => a - b);
-  const out: (number | '…')[] = [];
-  let prev = 0;
-  for (const p of sorted) {
-    if (prev && p - prev > 1) out.push('…');
-    out.push(p);
-    prev = p;
-  }
-  return out;
 }
 
 function StatusPill({ status }: { status: LibraryStatus }) {
@@ -297,11 +282,13 @@ function EntryActions({
   entry: e,
   onBrowse,
   onInfo,
+  onBlock,
   onDelete,
 }: {
   entry: LibraryEntry;
   onBrowse: (e: LibraryEntry) => void;
   onInfo: (e: LibraryEntry) => void;
+  onBlock: (e: LibraryEntry) => void;
   onDelete: (hash: string) => void;
 }) {
   const playUrl = usePlayUrl();
@@ -392,6 +379,24 @@ function EntryActions({
         >
           Details
         </Tooltip>
+        {releaseBlocklistKeys(e).length > 0 && (
+          <Tooltip
+            trigger={
+              <IconButton
+                size="sm"
+                intent="gray-subtle"
+                icon={<BiBlock />}
+                aria-label="Block release"
+                disabled={e.blocked}
+                onClick={() => onBlock(e)}
+              />
+            }
+          >
+            {e.blocked
+              ? 'Already on the release blocklist'
+              : 'Block this release on the blocklist'}
+          </Tooltip>
+        )}
         <Tooltip
           trigger={
             <IconButton
@@ -423,6 +428,7 @@ function EntryCard({
   onToggleSelect,
   onBrowse,
   onInfo,
+  onBlock,
   onDelete,
 }: {
   entry: LibraryEntry;
@@ -432,6 +438,7 @@ function EntryCard({
   onToggleSelect: (hash: string, value: boolean) => void;
   onBrowse: (e: LibraryEntry) => void;
   onInfo: (e: LibraryEntry) => void;
+  onBlock: (e: LibraryEntry) => void;
   onDelete: (hash: string) => void;
 }) {
   const e = entry;
@@ -487,6 +494,7 @@ function EntryCard({
                 entry={e}
                 onBrowse={onBrowse}
                 onInfo={onInfo}
+                onBlock={onBlock}
                 onDelete={onDelete}
               />
             </div>
@@ -536,6 +544,7 @@ function EntryCard({
             entry={e}
             onBrowse={onBrowse}
             onInfo={onInfo}
+            onBlock={onBlock}
             onDelete={onDelete}
           />
         </div>
@@ -601,7 +610,11 @@ export function UsenetLibraryPage() {
   });
   const del = useDeleteLibraryEntry();
   const delAll = useDeleteAllLibraryEntries();
+  const block = useBlockRelease();
   const pending = React.useRef<string[]>([]);
+  const [blockTarget, setBlockTarget] = React.useState<LibraryEntry | null>(
+    null
+  );
 
   const entries = query.data?.entries ?? [];
   const total = query.data?.total ?? 0;
@@ -658,6 +671,25 @@ export function UsenetLibraryPage() {
         });
     },
   });
+
+  const confirmBlock = useConfirmationDialog({
+    title: 'Block release',
+    description: `Mark "${blockTarget?.name ?? blockTarget?.nzbHash ?? ''}" as dead on this instance's release blocklist? Its streams stop appearing in results; undo from the Blocklist page.`,
+    actionText: 'Block',
+    actionIntent: 'alert-subtle',
+    onConfirm: () => {
+      if (!blockTarget) return;
+      block
+        .mutateAsync(blockTarget)
+        .then(() => toast.success('Release blocked'))
+        .catch((err: any) => toast.error(err?.message ?? 'Block failed'));
+    },
+  });
+
+  const onBlock = (entry: LibraryEntry) => {
+    setBlockTarget(entry);
+    confirmBlock.open();
+  };
 
   const onDelete = (hash: string) => {
     pending.current = [hash];
@@ -861,6 +893,7 @@ export function UsenetLibraryPage() {
                   onToggleSelect={toggleSelect}
                   onBrowse={setBrowse}
                   onInfo={setInfo}
+                  onBlock={onBlock}
                   onDelete={onDelete}
                 />
               ))}
@@ -915,6 +948,7 @@ export function UsenetLibraryPage() {
       />
       <ConfirmationDialog {...confirm} />
       <ConfirmationDialog {...confirmDeleteAll} />
+      <ConfirmationDialog {...confirmBlock} />
     </div>
   );
 }
