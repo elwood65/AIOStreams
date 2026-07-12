@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import { Readable, addAbortSignal } from 'node:stream';
 import { createHash } from 'node:crypto';
 import { createLogger } from '../../logging/logger.js';
 import { DebridError } from '../../debrid/base.js';
@@ -510,6 +510,7 @@ export async function openNativeUsenetStream(opts: {
   end?: number;
   signal?: AbortSignal;
 }): Promise<OpenedUsenetStream> {
+  opts.signal?.throwIfAborted();
   const decoded = decodeUsenetStreamToken(opts.token);
   if (!decoded) {
     throw new DebridError('invalid or tampered usenet stream token', {
@@ -535,12 +536,16 @@ export async function openNativeUsenetStream(opts: {
   }
 
   const session = await getStreamSession(decoded, providers, options);
+  opts.signal?.throwIfAborted();
   const { size, filename } = session;
   const start = Math.max(0, opts.start ?? 0);
   const end = Math.min(size, opts.end ?? size);
 
+  const stream = session.stream.createReadStream({ start, end });
+  if (opts.signal) addAbortSignal(opts.signal, stream);
+
   return {
-    stream: session.stream.createReadStream({ start, end }),
+    stream,
     size,
     start,
     end,

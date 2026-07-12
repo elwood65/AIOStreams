@@ -223,6 +223,20 @@ export const usenetSchema = {
     secret: false,
     ui: { kind: 'duration' as const, hidden: true },
   },
+  streamIdleTimeout: {
+    schema: seconds,
+    default: 3600,
+    label: 'Stream idle timeout',
+    description:
+      'Close a playback stream that has sent no data for this long, so ' +
+      'abandoned connections cannot hold provider connections and memory ' +
+      'forever. A paused player simply reconnects when it resumes. Set to ' +
+      '**0** to disable.',
+    env: 'USENET_STREAM_IDLE_TIMEOUT',
+    requiresRestart: false,
+    secret: false,
+    ui: { kind: 'duration' as const, hidden: true },
+  },
   circuitBreakerThreshold: {
     schema: positiveInt,
     default: 5,

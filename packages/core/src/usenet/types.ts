@@ -67,6 +67,11 @@ export interface EngineOptions {
   dialTimeoutMs: number;
   /** Idle connection TTL before considered stale. */
   idleConnectionMs: number;
+  /**
+   * Destroy a tracked read stream after this long with no bytes pushed to the
+   * client.
+   */
+  streamIdleTimeoutMs: number;
   /** Consecutive failures before a provider circuit-breaker trips. */
   circuitBreakerThreshold: number;
   /** Cooldown before a tripped provider is probed again. */
@@ -137,6 +142,7 @@ export const DEFAULT_ENGINE_OPTIONS: EngineOptions = {
   segmentTimeoutMs: 30_000,
   dialTimeoutMs: 15_000,
   idleConnectionMs: 60_000,
+  streamIdleTimeoutMs: 60 * 60_000,
   circuitBreakerThreshold: 5,
   circuitBreakerCooldownMs: 30_000,
   verifyMode: 'census',

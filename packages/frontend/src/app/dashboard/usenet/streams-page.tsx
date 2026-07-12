@@ -1,9 +1,12 @@
 import React from 'react';
-import { BiPlay } from 'react-icons/bi';
+import { toast } from 'sonner';
+import { BiPlay, BiStopCircle } from 'react-icons/bi';
 import { Card } from '@/components/ui/card';
 import { Stat } from '@/components/ui/charts';
+import { IconButton } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/components/ui/core/styling';
-import { useUsenetLive, type LiveStreamInfo } from './queries';
+import { useUsenetLive, useStopStream, type LiveStreamInfo } from './queries';
 import { formatBytes, formatSpeed, formatClock } from '@/lib/format';
 
 /** Progress = (range start + bytes served) / file size, clamped to [0, 1]. */
@@ -15,6 +18,7 @@ function progressOf(s: LiveStreamInfo): number {
 function StreamRow({ stream, now }: { stream: LiveStreamInfo; now: number }) {
   const pct = progressOf(stream);
   const active = stream.bytesPerSec > 0;
+  const stop = useStopStream();
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
@@ -25,6 +29,27 @@ function StreamRow({ stream, now }: { stream: LiveStreamInfo; now: number }) {
         <span className="text-xs tabular-nums text-[--muted] shrink-0">
           {formatSpeed(stream.bytesPerSec)}
         </span>
+        <Tooltip
+          trigger={
+            <IconButton
+              size="sm"
+              intent="alert-subtle"
+              icon={<BiStopCircle />}
+              aria-label="Stop stream"
+              disabled={stop.isPending}
+              onClick={() =>
+                stop
+                  .mutateAsync(stream.id)
+                  .then(() => toast.success('Stream stopped'))
+                  .catch((e: any) =>
+                    toast.error(e?.message ?? 'Failed to stop stream')
+                  )
+              }
+            />
+          }
+        >
+          Stop stream
+        </Tooltip>
       </div>
       <div className="h-1.5 w-full rounded-full bg-[--subtle] overflow-hidden">
         <div

@@ -123,6 +123,16 @@ class LiveMeter {
 /** Time constant (ms) for the per-stream download-rate EMA. */
 const STREAM_RATE_TAU_MS = 3_000;
 
+/** A tracked stream that exceeded the idle threshold (reaper input). */
+export interface IdleStreamInfo {
+  id: number;
+  nzbHash: string;
+  filename?: string;
+  idleMs: number;
+  bytesServed: number;
+  openedAt: number;
+}
+
 /** One tracked in-flight read stream (live "Streams" view). */
 interface LiveStreamRecord {
   id: number;
@@ -228,6 +238,29 @@ export class StatsAccumulator {
   streamClosed(id: number): void {
     if (this.active > 0) this.active--;
     this.streams.delete(id);
+  }
+
+  /**
+   * Streams whose last pushed chunk (or open, if nothing was ever pushed) is
+   * at least `thresholdMs` old. Feeds the idle-stream reaper; `now` is
+   * injectable for tests.
+   */
+  idleStreams(thresholdMs: number, now = Date.now()): IdleStreamInfo[] {
+    const out: IdleStreamInfo[] = [];
+    for (const s of this.streams.values()) {
+      const idleMs = now - s.lastChunkAt;
+      if (idleMs >= thresholdMs) {
+        out.push({
+          id: s.id,
+          nzbHash: s.nzbHash,
+          filename: s.filename,
+          idleMs,
+          bytesServed: s.bytesServed,
+          openedAt: s.openedAt,
+        });
+      }
+    }
+    return out;
   }
 
   /** Snapshot of in-flight read streams, with decayed current rates. */

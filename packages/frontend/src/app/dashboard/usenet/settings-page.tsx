@@ -63,6 +63,7 @@ const SECTIONS: { title: string; leaves: string[]; note?: string }[] = [
       'segmentTimeout',
       'dialTimeout',
       'idleConnection',
+      'streamIdleTimeout',
     ],
   },
   {

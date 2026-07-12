@@ -193,6 +193,20 @@ export function getUsenetLiveStats(): {
   };
 }
 
+/**
+ * Force-stop a live read stream by its dashboard id. Iterates the warm
+ * engines so a stale-fingerprint engine's streams remain stoppable too.
+ * Returns whether a reader was found.
+ */
+export function killUsenetStream(id: string): boolean {
+  const numeric = Number(id);
+  if (!Number.isSafeInteger(numeric) || numeric <= 0) return false;
+  for (const engine of usenetEngineRegistry.all()) {
+    if (engine.destroyReader(numeric)) return true;
+  }
+  return false;
+}
+
 /** Build the full dashboard overview for the given window. */
 export async function getUsenetStatsOverview(
   window: UsenetStatsWindow

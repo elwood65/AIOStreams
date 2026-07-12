@@ -5,6 +5,7 @@ import {
   formatZodError,
   getUsenetStatsOverview,
   getUsenetLiveStats,
+  killUsenetStream,
   getUsenetProviders,
   saveUsenetProviders,
   getUsenetSettings,
@@ -77,6 +78,26 @@ router.get('/live', (_req, res, next) => {
     res
       .status(200)
       .json(createResponse({ success: true, data: getUsenetLiveStats() }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /dashboard/usenet/streams/:id — force-stop one live read stream.
+router.delete('/streams/:id', (req, res, next) => {
+  try {
+    if (!killUsenetStream(req.params.id)) {
+      return res.status(404).json(
+        createResponse({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'stream not found' },
+        })
+      );
+    }
+    logger.info({ id: req.params.id }, 'stream stopped from the dashboard');
+    res
+      .status(200)
+      .json(createResponse({ success: true, data: { stopped: true } }));
   } catch (err) {
     next(err);
   }

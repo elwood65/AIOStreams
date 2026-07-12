@@ -9,7 +9,11 @@ import { PrioritySemaphore } from './pool/priority-semaphore.js';
 import { SegmentCache, CacheStats } from './pool/segment-cache.js';
 import { StatsAccumulator } from './stats/accumulator.js';
 import { FileStream, SeekableStream, SegmentMemo } from './pool/file-stream.js';
-import { trackSeekableStream } from './pool/tracked-stream.js';
+import {
+  trackSeekableStream,
+  reapIdleStreams,
+  UsenetStreamReapedError,
+} from './pool/tracked-stream.js';
 import {
   inspectNzb,
   selectBestVideo,
@@ -190,10 +194,11 @@ export class UsenetEngine {
   /** Live census runs, so close() can cancel their workers promptly. */
   private liveCensus = new Set<CensusRun>();
   /**
-   * Every read stream opened through {@link track}, so close() can destroy
-   * in-flight readers.
+   * Every read stream opened through {@link track}, keyed by its stats stream
+   * id, so close() can destroy in-flight readers and the idle reaper / the
+   * dashboard stop action can destroy one by id.
    */
-  private liveReaders = new Set<Readable>();
+  private liveReaders = new Map<number, Readable>();
   /**
    * Shared probe budget for ALL live censuses (blocking + shadows): N
    * concurrent censuses contend for these slots instead of multiplying
@@ -242,7 +247,10 @@ export class UsenetEngine {
       this.stats
     );
     this.purgeTimer = setInterval(
-      () => this.pool.purgeStaleIdles(),
+      () => {
+        this.pool.purgeStaleIdles();
+        this.reapIdleReaders();
+      },
       Math.max(10_000, this.options.idleConnectionMs)
     );
     this.purgeTimer.unref?.();
@@ -1057,6 +1065,28 @@ export class UsenetEngine {
     );
   }
 
+  /**
+   * Destroy readers that pushed no bytes for `streamIdleTimeoutMs`.
+   */
+  private reapIdleReaders(): void {
+    if (this.options.streamIdleTimeoutMs <= 0) return;
+    reapIdleStreams(
+      this.stats,
+      this.liveReaders,
+      this.options.streamIdleTimeoutMs
+    );
+  }
+
+  /** Destroy one live reader by its stats stream id (dashboard stop action). */
+  destroyReader(id: number): boolean {
+    const reader = this.liveReaders.get(id);
+    if (!reader) return false;
+    reader.destroy(
+      new UsenetStreamReapedError('stream stopped from the dashboard')
+    );
+    return true;
+  }
+
   /** Unified live snapshot (tiles + pool + per-provider + cache). */
   liveStats(): EngineLiveStats {
     this.touch();
@@ -1097,7 +1127,7 @@ export class UsenetEngine {
     const readers = this.liveReaders.size;
     if (readers > 0) {
       logger.debug({ readers }, 'destroying live readers on engine close');
-      for (const reader of [...this.liveReaders]) {
+      for (const reader of [...this.liveReaders.values()]) {
         reader.destroy(new Error('usenet engine closed'));
       }
     }

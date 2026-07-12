@@ -255,6 +255,15 @@ export function useUsenetLive(enabled = true) {
   });
 }
 
+export function useStopStream() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api(`DELETE /dashboard/usenet/streams/${encodeURIComponent(id)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...ROOT, 'live'] }),
+  });
+}
+
 export function useUsenetProviders() {
   return useQuery({
     queryKey: [...ROOT, 'providers'],
