@@ -180,9 +180,13 @@ export interface ProviderPoolInfo {
   available: number;
   max: number;
   tripped: boolean;
+  throttled: boolean;
   isBackup: boolean;
   freeSlots: number;
   throughput: number;
+  queued: number;
+  lastDialOkAt?: number;
+  lastDialError?: { at: number; kind: string; message: string };
 }
 
 export interface PoolInfo {
@@ -190,6 +194,10 @@ export interface PoolInfo {
   /** Currently in-use slots of the global download semaphore. */
   globalDownloadsInUse: number;
   globalDownloadMax: number;
+  /** In-use permits whose transfer has actually started on a connection. */
+  globalDownloadsOnWire: number;
+  /** Fetches still waiting for a semaphore permit. */
+  globalDownloadsWaiting: number;
 }
 
 /** Minimal reference to a segment the pool needs to fetch. */

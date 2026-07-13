@@ -22,6 +22,8 @@ export interface WorkerPoolOptions extends ConnectionOptions {
    * priority.
    */
   streamingPriority: number;
+  /** Invoked on every failed dial attempt. */
+  onDialError?: (err: unknown) => void;
 }
 
 /**
@@ -42,6 +44,11 @@ export interface WorkRequest<T = unknown> {
   run: (conn: NntpConnection) => Promise<{ value: T; bytes: number }>;
   resolve: (r: WorkResult<T>) => void;
   reject: (err: unknown) => void;
+  /**
+   * Cancels the request while it is still queued; once on a connection the
+   * transfer completes normally.
+   */
+  signal?: AbortSignal;
 }
 
 /** A single connection slot owned by the pool (lazily dialed). */
@@ -86,6 +93,9 @@ export class ProviderWorkerPool {
   private throttleTimer?: ReturnType<typeof setInterval>;
   private keepaliveTimer?: ReturnType<typeof setInterval>;
   private trippedUntil = 0;
+
+  private lastDialOkAt = 0;
+  private lastDialError?: { at: number; kind: string; message: string };
 
   /** A successful authenticated dial has happened at least once. */
   private everOnline = false;
@@ -206,11 +216,43 @@ export class ProviderWorkerPool {
         );
         return;
       }
+      if (req.signal?.aborted) {
+        reject(
+          new NntpError('connection', 'aborted', { provider: this.label })
+        );
+        return;
+      }
       const full: WorkRequest<T> = {
         ...req,
         resolve,
         reject,
       };
+      if (req.signal) {
+        const signal = req.signal;
+        const onAbort = (): void => {
+          for (const q of [this.prioQ, this.normalQ]) {
+            const i = q.indexOf(full as WorkRequest);
+            if (i === -1) continue;
+            q.splice(i, 1);
+            full.reject(
+              new NntpError('connection', 'aborted', { provider: this.label })
+            );
+            return;
+          }
+        };
+        signal.addEventListener('abort', onAbort);
+        // Detach on settle: stream-lifetime signals outlive many requests, and
+        // leftover listeners accumulate for the whole stream otherwise.
+        const detach = (): void => signal.removeEventListener('abort', onAbort);
+        full.resolve = (r) => {
+          detach();
+          resolve(r);
+        };
+        full.reject = (err) => {
+          detach();
+          reject(err);
+        };
+      }
       (req.priority === CommandPriority.High ? this.prioQ : this.normalQ).push(
         full as WorkRequest
       );
@@ -329,6 +371,7 @@ export class ProviderWorkerPool {
         slot.conn = conn;
         slot.failures = 0;
         this.everOnline = true;
+        this.lastDialOkAt = Date.now();
         if (this.state !== 'online') {
           logger.info({ provider: this.label }, 'provider back online');
           this.state = 'online';
@@ -346,6 +389,12 @@ export class ProviderWorkerPool {
   }
 
   private onDialError(slot: Slot, err: unknown): void {
+    this.lastDialError = {
+      at: Date.now(),
+      kind: err instanceof NntpError ? err.kind : 'unknown',
+      message: err instanceof Error ? err.message : String(err),
+    };
+    this.opts.onDialError?.(err);
     if (err instanceof NntpError && err.kind === 'auth_failed') {
       const firstTime = this.state !== 'auth_failed';
       this.state = 'auth_failed';
@@ -393,6 +442,10 @@ export class ProviderWorkerPool {
       (res) => {
         const durationMs = Date.now() - started;
         slot.failures = 0;
+        // Refresh staleness on real work so purge only reaps genuinely idle
+        // connections (touch-at-connect-only redialed active streams every
+        // stale interval). Keepalive DATEs deliberately don't touch.
+        conn.touch();
         this.recordLatency(durationMs);
         if (res.bytes > 0) this.recordThroughput(res.bytes, durationMs);
         this.recordOutcome(false);
@@ -499,6 +552,13 @@ export class ProviderWorkerPool {
           'provider circuit breaker tripped'
         );
       }
+      // Fail queued work with a transient error so callers fail over to the
+      // next provider
+      this.failAllQueued(
+        new NntpError('connection', 'provider circuit breaker tripped', {
+          provider: this.label,
+        })
+      );
     }
   }
 
@@ -512,12 +572,16 @@ export class ProviderWorkerPool {
   /** Periodic DATE on idle warm connections so the server doesn't reap them. */
   private keepalive(): void {
     if (this.closed) return;
+    if (this.hasWork()) this.dispatch();
     for (const slot of this.slots) {
       const conn = slot.conn;
       if (!conn || !conn.isUsable || conn.inFlight > 0) continue;
-      conn.date(undefined, this.opts.idleConnectionMs).catch(() => {
-        if (slot.conn === conn) slot.conn = null;
-      });
+      conn
+        .date(undefined, this.opts.idleConnectionMs)
+        .catch(() => {
+          if (slot.conn === conn) slot.conn = null;
+        })
+        .finally(() => this.dispatch());
     }
   }
 
@@ -530,6 +594,9 @@ export class ProviderWorkerPool {
         slot.conn = null;
       }
     }
+    // Backstop for any missed-dispatch edge: queued work must never outlive a
+    // purge interval without a dispatch attempt.
+    if (this.hasWork()) this.dispatch();
   }
 
   info(): ProviderPoolInfo {
@@ -549,9 +616,13 @@ export class ProviderWorkerPool {
       available: Math.max(0, this.allowed - total),
       max: this.config.maxConnections,
       tripped: this.tripped,
+      throttled: this.throttled,
       isBackup: this.isBackup,
       freeSlots: this.freeSlots,
       throughput: Math.round(this.throughputEwma * this.depth * 1000),
+      queued: this.prioQ.length + this.normalQ.length,
+      lastDialOkAt: this.lastDialOkAt || undefined,
+      lastDialError: this.lastDialError,
     };
   }
 

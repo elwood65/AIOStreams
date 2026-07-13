@@ -1052,15 +1052,18 @@ export class UsenetEngine {
 
   /**
    * True while this engine is doing real work: a read stream is open (even a
-   * stalled one, since a paused player fetches nothing), article fetches are
-   * in flight (imports, inspections), or a census is still auditing a
+   * stalled one, since a paused player fetches nothing), article transfers
+   * are on the wire (imports, inspections), or a census is still auditing a
    * release. Counting censuses keeps the registry from evicting an engine
    * mid-shadow; the census max-lifetime cap bounds how long that can pin one.
+   * On-wire (not permits held) is deliberate: abandoned fetches parked in a
+   * pool queue must not pin the engine open forever; idle eviction is the
+   * backstop that clears them.
    */
   isBusy(): boolean {
     return (
       this.stats.activeStreams > 0 ||
-      this.pool.downloadsInUse > 0 ||
+      this.pool.downloadsOnWire > 0 ||
       this.liveCensus.size > 0
     );
   }

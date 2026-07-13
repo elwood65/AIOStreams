@@ -179,7 +179,13 @@ export function getUsenetLiveStats(): {
   if (providers.length === 0) {
     return {
       live: emptyLive(),
-      pool: { providers: [], globalDownloadsInUse: 0, globalDownloadMax: 0 },
+      pool: {
+        providers: [],
+        globalDownloadsInUse: 0,
+        globalDownloadMax: 0,
+        globalDownloadsOnWire: 0,
+        globalDownloadsWaiting: 0,
+      },
       cache: emptyCache(),
       streams: [],
     };

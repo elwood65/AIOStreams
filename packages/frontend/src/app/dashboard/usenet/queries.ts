@@ -39,15 +39,26 @@ export interface ProviderPoolInfo {
   available: number;
   max: number;
   tripped: boolean;
+  throttled: boolean;
   isBackup: boolean;
   freeSlots: number;
   throughput: number;
+  /** Requests waiting in the pool's queues (not yet on a connection). */
+  queued: number;
+  /** Epoch ms of the last successful dial; undefined if never dialed. */
+  lastDialOkAt?: number;
+  /** Most recent failed dial attempt (not cleared by later successes). */
+  lastDialError?: { at: number; kind: string; message: string };
 }
 
 export interface PoolInfo {
   providers: ProviderPoolInfo[];
   globalDownloadsInUse: number;
   globalDownloadMax: number;
+  /** In-use permits whose transfer has actually started on a connection. */
+  globalDownloadsOnWire: number;
+  /** Fetches still waiting for a semaphore permit (e.g. prefetch bursts). */
+  globalDownloadsWaiting: number;
 }
 
 export interface CacheStats {
@@ -250,7 +261,7 @@ export function useUsenetLive(enabled = true) {
   return useQuery({
     queryKey: [...ROOT, 'live'],
     queryFn: () => api<LiveStats>('/dashboard/usenet/live'),
-    refetchInterval: 4_000,
+    refetchInterval: 2_500,
     enabled,
   });
 }
