@@ -4,6 +4,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
 } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { SettingsKey } from '../settings/queries';
@@ -148,6 +149,18 @@ export interface LiveStats {
   pool: PoolInfo;
   cache: CacheStats;
   streams: LiveStreamInfo[];
+  /**
+   * The server's sampling interval, present only on streamed frames.
+   */
+  tickMs?: number;
+}
+
+/** Ease window when no frame has arrived yet. */
+export const LIVE_FRAME_FALLBACK_MS = 500;
+
+/** How long the UI should take to ease from the last live frame to this one. */
+export function liveFrameMs(d: LiveStats | undefined): number {
+  return d?.tickMs ?? LIVE_FRAME_FALLBACK_MS;
 }
 
 export interface MaskedProvider {
@@ -259,11 +272,48 @@ export function useUsenetStats(window: UsenetWindow) {
   });
 }
 
+const LIVE_QUERY_KEY = [...ROOT, 'live'] as const;
+
+/**
+ * The live stream is shared: `useUsenetLive` can mount in more than one place,
+ * and browsers cap concurrent connections per host, so refcount a single
+ * EventSource instead of opening one per consumer.
+ */
+let liveSource: EventSource | null = null;
+let liveRefs = 0;
+
+function subscribeLive(qc: QueryClient): () => void {
+  liveRefs++;
+  if (!liveSource) {
+    liveSource = new EventSource('/api/v1/dashboard/usenet/live/stream', {
+      withCredentials: true,
+    });
+    // Browsers auto-reconnect SSE on transient errors; nothing to do on error.
+    liveSource.onmessage = (e) => {
+      try {
+        qc.setQueryData(LIVE_QUERY_KEY, JSON.parse(e.data) as LiveStats);
+      } catch {
+        /* ignore a malformed frame */
+      }
+    };
+  }
+  return () => {
+    if (--liveRefs > 0) return;
+    liveSource?.close();
+    liveSource = null;
+  };
+}
+
 export function useUsenetLive(enabled = true) {
+  const qc = useQueryClient();
+  React.useEffect(() => {
+    if (!enabled) return;
+    return subscribeLive(qc);
+  }, [qc, enabled]);
   return useQuery({
-    queryKey: [...ROOT, 'live'],
+    queryKey: LIVE_QUERY_KEY,
     queryFn: () => api<LiveStats>('/dashboard/usenet/live'),
-    refetchInterval: 2_500,
+    staleTime: Infinity,
     enabled,
   });
 }
@@ -273,7 +323,7 @@ export function useStopStream() {
   return useMutation({
     mutationFn: (id: string) =>
       api(`DELETE /dashboard/usenet/streams/${encodeURIComponent(id)}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [...ROOT, 'live'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: LIVE_QUERY_KEY }),
   });
 }
 

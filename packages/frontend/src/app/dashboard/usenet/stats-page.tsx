@@ -7,9 +7,11 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/components/ui/core/styling';
 import { AreaChart, DonutChart, Stat } from '@/components/ui/charts';
 import { DashboardQueryBoundary } from '@/components/shared/dashboard-query-boundary';
+import { AnimatedNumber } from '@/components/shared/animated-number';
 import {
   useUsenetStats,
   useUsenetLive,
+  liveFrameMs,
   type PoolInfo,
   type ProviderPoolInfo,
   type UsenetWindow,
@@ -260,6 +262,7 @@ function LivePanel() {
   const pool = d?.pool;
   const stuck = useStuckPool(pool);
   const hasBackup = pool?.providers.some((p) => p.isBackup) ?? false;
+  const frameMs = liveFrameMs(d);
 
   return (
     <div className="space-y-4">
@@ -278,17 +281,47 @@ function LivePanel() {
         />
         <Stat
           label="Download speed"
-          value={tiles ? formatSpeed(tiles.currentBytesPerSec) : '—'}
+          value={
+            tiles ? (
+              <AnimatedNumber
+                value={tiles.currentBytesPerSec}
+                format={formatSpeed}
+                durationSec={frameMs / 1000}
+              />
+            ) : (
+              '—'
+            )
+          }
           hint={tiles ? `peak ${formatSpeed(tiles.peakBytesPerSec)}` : ''}
         />
         <Stat
           label="Articles / min"
-          value={tiles ? formatCompact(tiles.articlesLastMinute) : '—'}
+          value={
+            tiles ? (
+              <AnimatedNumber
+                value={tiles.articlesLastMinute}
+                format={(n) => formatCompact(Math.round(n))}
+                durationSec={frameMs / 1000}
+              />
+            ) : (
+              '—'
+            )
+          }
           hint={tiles ? `${tiles.errorsLastMinute} errors` : ''}
         />
         <Stat
           label="Cache hit rate"
-          value={d ? formatPercent(d.cache.hitRate) : '—'}
+          value={
+            d ? (
+              <AnimatedNumber
+                value={d.cache.hitRate}
+                format={formatPercent}
+                durationSec={frameMs / 1000}
+              />
+            ) : (
+              '—'
+            )
+          }
           hint={d ? `${formatBytes(d.cache.diskBytes)} on disk` : ''}
         />
       </div>
@@ -344,23 +377,42 @@ function LivePanel() {
                     <div
                       className={cn(
                         'absolute inset-y-0 left-0',
+                        'transition-[width] ease-out motion-reduce:transition-none',
                         p.tripped ? 'bg-red-500/30' : 'bg-brand/30'
                       )}
-                      style={{ width: pct(p.total) }}
+                      style={{
+                        width: pct(p.total),
+                        transitionDuration: `${frameMs}ms`,
+                      }}
                     />
                     <div
                       className={cn(
                         'absolute inset-y-0 left-0',
+                        'transition-[width] ease-out motion-reduce:transition-none',
                         p.tripped ? 'bg-red-500' : 'bg-brand'
                       )}
-                      style={{ width: pct(p.acquired) }}
+                      style={{
+                        width: pct(p.acquired),
+                        transitionDuration: `${frameMs}ms`,
+                      }}
                     />
                   </div>
                   <span
                     className="text-xs tabular-nums w-24 text-right text-[--foreground]"
                     title={`per-connection download-rate EWMA the load-balancer splits group traffic by · ${p.freeSlots} free pipeline slots · aggregate ≈ this × active connections (see the windowed table for total speed)`}
                   >
-                    {p.throughput ? `${formatSpeed(p.throughput)}/conn` : '—'}
+                    {p.throughput ? (
+                      <>
+                        <AnimatedNumber
+                          value={p.throughput}
+                          format={formatSpeed}
+                          durationSec={frameMs / 1000}
+                        />
+                        /conn
+                      </>
+                    ) : (
+                      '—'
+                    )}
                   </span>
                   <span
                     className="text-xs text-[--muted] tabular-nums w-40 text-right"

@@ -161,7 +161,6 @@ export interface EngineLiveStats {
   fingerprint: string;
   tiles: LiveTiles;
   pool: PoolInfo;
-  providers: ProviderStatsSnapshot[];
   cache: CacheStats;
   /** In-flight read streams (live "Streams" view). */
   streams: LiveStreamInfo[];
@@ -1090,14 +1089,14 @@ export class UsenetEngine {
     return true;
   }
 
-  /** Unified live snapshot (tiles + pool + per-provider + cache). */
+  /**
+   * Unified live snapshot (tiles + pool + cache + streams).
+   */
   liveStats(): EngineLiveStats {
-    this.touch();
     return {
       fingerprint: this.fingerprint,
       tiles: this.stats.live(),
       pool: this.pool.poolInfo(),
-      providers: this.stats.snapshot(),
       cache: this.cache.stats(),
       streams: this.stats.liveStreams(),
     };
@@ -1219,6 +1218,16 @@ export class UsenetEngineRegistry {
     }
     engine.lastUsedAt = Date.now();
     return engine;
+  }
+
+  /**
+   * The warm engine for a provider set, or undefined when none is. Unlike
+   * {@link get} this neither creates an engine nor refreshes its idle clock.
+   */
+  peek(providers: ProviderConfig[]): UsenetEngine | undefined {
+    return this.engines.get(
+      providerSetFingerprint(providers, appConfig.bootstrap.secretKey)
+    );
   }
 
   get size(): number {

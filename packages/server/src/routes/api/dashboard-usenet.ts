@@ -72,7 +72,9 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
-// GET /dashboard/usenet/live — lightweight live tiles + pool (fast polling).
+// GET /dashboard/usenet/live — one-shot live tiles + pool. Seeds the first
+// render (and is the fallback where SSE can't get through); /live/stream is
+// what keeps the dashboard current.
 router.get('/live', (_req, res, next) => {
   try {
     res
@@ -81,6 +83,45 @@ router.get('/live', (_req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+const LIVE_TICK_MS = 1_500;
+const LIVE_HEARTBEAT_MS = 15_000;
+
+router.get('/live/stream', (req, res) => {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  let closed = false;
+  let last = '';
+  const tick = () => {
+    if (closed) return;
+    try {
+      const frame = JSON.stringify({
+        ...getUsenetLiveStats(),
+        tickMs: LIVE_TICK_MS,
+      });
+      if (frame === last) return;
+      last = frame;
+      res.write(`data: ${frame}\n\n`);
+    } catch {
+      /* skip a frame */
+    }
+  };
+  tick();
+  const timer = setInterval(tick, LIVE_TICK_MS);
+  const hb = setInterval(() => res.write(':hb\n\n'), LIVE_HEARTBEAT_MS);
+
+  req.on('close', () => {
+    closed = true;
+    clearInterval(timer);
+    clearInterval(hb);
+    res.end();
+  });
 });
 
 // DELETE /dashboard/usenet/streams/:id — force-stop one live read stream.

@@ -10,6 +10,7 @@ import {
   LiveTiles,
   LiveStreamInfo,
   CacheStats,
+  EngineOptions,
 } from '../../index.js';
 import { usenetEngineRegistry, getUsenetEngineConfig } from '../engine.js';
 
@@ -184,6 +185,39 @@ export async function pruneUsenetMetrics(
   return UsenetMetricsRepository.pruneOlderThan(cutoff);
 }
 
+/**
+ * Pool shape for a configured provider set with no engine warm: known accounts,
+ * nothing dialled. Mirrors what a freshly-built engine's pool reports before its
+ * first connection, so the dashboard renders the same rows either way.
+ */
+function idlePool(
+  providers: ProviderConfig[],
+  options: Partial<EngineOptions>
+): PoolInfo {
+  return {
+    providers: providers.map((p) => ({
+      id: p.id,
+      name: p.name,
+      state: 'offline' as ProviderState,
+      total: 0,
+      idle: 0,
+      acquired: 0,
+      available: Math.max(1, p.maxConnections),
+      max: p.maxConnections,
+      tripped: false,
+      throttled: false,
+      isBackup: p.isBackup ?? false,
+      freeSlots: 0,
+      throughput: 0,
+      queued: 0,
+    })),
+    globalDownloadsInUse: 0,
+    globalDownloadMax: options.maxConcurrentDownloads ?? 0,
+    globalDownloadsOnWire: 0,
+    globalDownloadsWaiting: 0,
+  };
+}
+
 /** Live tiles + pool snapshot from the warm engine for the configured set. */
 export function getUsenetLiveStats(): {
   live: LiveTiles;
@@ -192,21 +226,17 @@ export function getUsenetLiveStats(): {
   streams: LiveStreamInfo[];
 } {
   const { providers, options } = getUsenetEngineConfig();
-  if (providers.length === 0) {
+  const engine =
+    providers.length > 0 ? usenetEngineRegistry.peek(providers) : undefined;
+  if (!engine) {
     return {
       live: emptyLive(),
-      pool: {
-        providers: [],
-        globalDownloadsInUse: 0,
-        globalDownloadMax: 0,
-        globalDownloadsOnWire: 0,
-        globalDownloadsWaiting: 0,
-      },
+      pool: idlePool(providers, options),
       cache: emptyCache(),
       streams: [],
     };
   }
-  const snapshot = usenetEngineRegistry.get(providers, options).liveStats();
+  const snapshot = engine.liveStats();
   return {
     live: snapshot.tiles,
     pool: snapshot.pool,
