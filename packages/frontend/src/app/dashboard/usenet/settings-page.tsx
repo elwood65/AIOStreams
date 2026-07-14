@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { BiCog } from 'react-icons/bi';
@@ -18,6 +19,7 @@ import {
 import type { SettingsKey } from '../settings/queries';
 import { SettingsActionsMenu } from '../settings/_components/settings-actions-menu';
 import MarkdownLite from '@/components/shared/markdown-lite';
+import { useScrollToField } from '@/components/shared/command-palette/use-scroll-to-field';
 import {
   useUsenetSettings,
   useSaveUsenetSettings,
@@ -183,6 +185,21 @@ export function UsenetSettingsPage() {
   const query = useUsenetSettings();
   const { mutateAsync, isPending } = useSaveUsenetSettings();
   const methodsRef = React.useRef<UseFormReturn<any> | null>(null);
+  const search = useSearch({ from: '/dashboard/usenet/settings' });
+  const navigate = useNavigate({ from: '/dashboard/usenet/settings' });
+
+  const clearField = React.useCallback(() => {
+    navigate({
+      to: '.',
+      search: (prev) => ({ ...prev, field: undefined }),
+      replace: true,
+      resetScroll: false,
+    });
+  }, [navigate]);
+
+  // Must run before the early-return guards below, to satisfy the rules of
+  // hooks. The fields only exist once the settings payload has arrived.
+  useScrollToField(search.field, Boolean(query.data), clearField);
 
   const keys = query.data?.keys ?? [];
   const profiles = query.data?.profiles ?? {};
@@ -301,7 +318,9 @@ export function UsenetSettingsPage() {
                     </p>
                   )}
                   {g.keys.map((k) => (
-                    <SettingsField key={k.key} k={k} />
+                    <div key={k.key} id={`setting-${k.key}`}>
+                      <SettingsField k={k} />
+                    </div>
                   ))}
                 </SettingsCard>
               ))}
