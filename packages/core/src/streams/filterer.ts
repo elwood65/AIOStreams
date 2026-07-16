@@ -631,13 +631,7 @@ class StreamFilterer {
       const rules: FilterRule[] = [
         // General
         {
-          when: () => Math.abs(daysSinceRelease) <= tolerance,
-          allow: true,
-          reason: () =>
-            `"${title}" within tolerance (${Math.abs(daysSinceRelease)}d <= ${tolerance}d)`,
-        },
-        {
-          when: () => daysSinceRelease < 0,
+          when: () => daysSinceRelease < -tolerance,
           allow: false,
           level: 'info',
           reason: () =>
@@ -653,14 +647,7 @@ class StreamFilterer {
           when: () =>
             isSeries &&
             daysSinceEpisode !== null &&
-            Math.abs(daysSinceEpisode) <= tolerance,
-          allow: true,
-          reason: () =>
-            `Episode ${epLabel} within tolerance (${Math.abs(daysSinceEpisode!)}d <= ${tolerance}d)`,
-        },
-        {
-          when: () =>
-            isSeries && daysSinceEpisode !== null && daysSinceEpisode < 0,
+            daysSinceEpisode < -tolerance,
           allow: false,
           level: 'info',
           reason: () =>
@@ -669,7 +656,10 @@ class StreamFilterer {
         {
           when: () => isSeries,
           allow: true,
-          reason: () => `Episode has aired`,
+          reason: () =>
+            daysSinceEpisode !== null && daysSinceEpisode < 0
+              ? `Episode ${epLabel} within tolerance (airs in ${Math.abs(daysSinceEpisode)}d, ${tolerance}d tolerance)`
+              : `Episode has aired`,
         },
         // Movie rules
         {
@@ -708,7 +698,9 @@ class StreamFilterer {
           allow: false,
           level: 'info',
           reason: () =>
-            `"${title}" no digital release data (${daysSinceRelease}d since theatrical)`,
+            daysSinceRelease < 0
+              ? `"${title}" no digital release data (releases theatrically in ${Math.abs(daysSinceRelease)}d)`
+              : `"${title}" no digital release data (${daysSinceRelease}d since theatrical)`,
         },
       ];
 
