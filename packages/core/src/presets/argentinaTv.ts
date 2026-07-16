@@ -44,7 +44,9 @@ class ArgentinaTvStreamParser extends StreamParser {
     service: ParsedStream['service'],
     currentParsedStream: ParsedStream
   ): ParsedStream['type'] {
-    return constants.LIVE_STREAM_TYPE;
+    return stream.url
+      ? constants.LIVE_STREAM_TYPE
+      : super.getStreamType(stream, service, currentParsedStream);
   }
 }
 
