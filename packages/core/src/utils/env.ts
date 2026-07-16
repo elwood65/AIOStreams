@@ -95,8 +95,12 @@ const proxyAuth = makeValidator((x) => {
   }
   // comma separated list of username:password
   const userMap: Map<string, string> = new Map();
-  x.split(',').forEach((x) => {
-    const [username, password] = x.split(':');
+  x.split(',').forEach((entry) => {
+    entry = entry.trim();
+    if (!entry) return;
+    const sep = entry.indexOf(':');
+    const username = sep === -1 ? '' : entry.slice(0, sep).trim();
+    const password = sep === -1 ? '' : entry.slice(sep + 1).trim();
     if (!username || !password) {
       throw new EnvError(
         'Proxy auth must be a comma separated list of username:password pairs'
