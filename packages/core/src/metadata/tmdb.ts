@@ -53,7 +53,7 @@ const TVDetailsSchema = z.object({
   first_air_date: z.string().nullable().optional(),
   last_air_date: z.string().nullable().optional(),
   status: z.string(),
-  original_title: z.string().optional(),
+  original_name: z.string().optional(),
   original_language: z.string().optional(),
   episode_run_time: z.array(z.number()).optional(),
   seasons: z.array(
@@ -379,9 +379,9 @@ export class TMDBMetadata {
       genres = movieData.genres?.map((g) => g.name) ?? [];
     } else {
       const tvData = TVDetailsSchema.parse(detailsJson);
-      if (tvData.original_title) {
+      if (tvData.original_name) {
         allTitles.push({
-          title: tvData.original_title,
+          title: tvData.original_name,
           language: tvData.original_language,
         });
       } else {
@@ -392,7 +392,7 @@ export class TMDBMetadata {
       }
       primaryTitle =
         tvData.original_language !== 'en'
-          ? (tvData.original_title ?? tvData.name)
+          ? (tvData.original_name ?? tvData.name)
           : tvData.name;
       originalLanguage = tvData.original_language;
       releaseDate = tvData.first_air_date ?? undefined;
