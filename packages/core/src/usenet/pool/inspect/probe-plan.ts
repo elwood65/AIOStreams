@@ -43,6 +43,24 @@ function medianEncodedSize(files: Array<{ encodedSize: number }>): number {
 }
 
 /**
+ * Whether the archive volumes fail to resolve to a single clean set purely from
+ * their (obfuscated) names
+ */
+function archiveGroupingIsAmbiguous(nzb: Nzb): boolean {
+  const groups = groupVolumeSets(
+    nzb.files.map((f, index) => ({
+      index,
+      filename: f.filename,
+      segments: f.segments.length,
+      firstSegmentNumber: f.segments[0]?.number,
+    }))
+  );
+  return (
+    groups.length > 1 && groups.some((g) => isProbablyObfuscated(g.baseName))
+  );
+}
+
+/**
  * Which files to probe and what is already known about the rest; built before
  * the probe pass, refined mid-pass by {@link ProbePlan.dynamicRegroup}.
  */
@@ -90,19 +108,20 @@ export async function buildProbePlan(
   }
 
   // PAR2 exists (for us) to recover real names for obfuscated/unnamed files.
-  // Archive VOLUMES never need that: grouping keys off the `.7z.NNN`/`.rNN`
-  // suffix (even with an obfuscated stem) and display names come from the
-  // inner-file listing. So par2 is only worth fetching when some plain,
-  // non-volume file is unnamed or looks obfuscated; otherwise the par2 probes
-  // and the descriptor fetch are pure waste; skip them (classified by ext).
+  // Archive VOLUMES usually don't need that: grouping keys off the
+  // `.7z.NNN`/`.rNN` suffix (even with an obfuscated stem) and display names
+  // come from the inner-file listing. So par2 is only worth fetching when some
+  // plain, non-volume file is unnamed or looks obfuscated; otherwise the par2
+  // probes and the descriptor fetch are pure waste; skip them (classified by ext).
   const isPar2Name = (n?: string) => !!n && /\.par2$/i.test(n);
-  const wantPar2 = nzb.files.some(
-    (f) =>
-      !isPar2Name(f.filename) &&
-      (!f.filename ||
-        (archiveBaseName(f.filename) === undefined &&
-          isProbablyObfuscated(f.filename)))
-  );
+  const wantPar2 =
+    nzb.files.some(
+      (f) =>
+        !isPar2Name(f.filename) &&
+        (!f.filename ||
+          (archiveBaseName(f.filename) === undefined &&
+            isProbablyObfuscated(f.filename)))
+    ) || archiveGroupingIsAmbiguous(nzb);
 
   // Lazy RAR: for NAMED RAR sets big enough to matter, the PAR2 descriptors
   // give every volume's EXACT size by filename; no content fetch needed. The
