@@ -1,4 +1,4 @@
-import { Addon, Option, UserData, Resource } from '../db/index.js';
+import { Addon, Option, UserData } from '../db/index.js';
 import { baseOptions, Preset } from './preset.js';
 import { constants, ServiceId } from '../utils/index.js';
 import { config as appConfig } from '../config/index.js';
@@ -23,6 +23,14 @@ export class StreamFusionPreset extends Preset {
     ];
 
     const options: Option[] = [
+      {
+        id: 'divergedInstanceNotice',
+        name: 'Using StreamFusion Reborn?',
+        description:
+          'These options auto-configure [Telkaoss/stream-fusion](https://github.com/Telkaoss/stream-fusion), the addon this preset targets. StreamFusion Reborn is a separate fork, run by someone else, that stores its configuration on its own site (you register there to get a key), so auto-config fails with a 403. To use it, configure the addon on its website and paste the generated install URL (ending in `/manifest.json`) into the URL field below - the other options are then ignored.',
+        type: 'alert',
+        intent: 'warning-basic',
+      },
       ...baseOptions(
         'StreamFusion',
         supportedResources,
@@ -33,7 +41,7 @@ export class StreamFusionPreset extends Preset {
         id: 'streamFusionApiKey',
         name: 'StreamFusion API Key',
         description:
-          'The API key for the StreamFusion service. You can get it by sending the `/generate` command to the [StremioFR Telegram bot](https://t.me/Stremiofr_bot)',
+          'The API key for the StreamFusion service. You can get it by sending the `/generate` command to the [StremioFR Telegram bot](https://t.me/Stremiofr_bot). Not used when you supply a full install URL in the URL field.',
         type: 'password',
         required: true,
       },
