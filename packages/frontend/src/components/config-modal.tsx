@@ -26,8 +26,6 @@ export function ConfigModal({
   const [password, setPasswordInput] = React.useState('');
   const [loading, setLoading] = React.useState(false);
 
-  console.log(`received initialUuid: ${initialUuid}`);
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -74,15 +72,21 @@ export function ConfigModal({
         <TextInput
           label="UUID"
           id="uuid"
+          name="username"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           value={uuid}
           onValueChange={(value) => setUuidInput(value)}
           placeholder="Enter your configuration UUID"
           required
-          disabled={!!initialUuid}
+          readOnly={!!initialUuid}
+          className={initialUuid ? 'opacity-50' : undefined}
         />
         <PasswordInput
           label="Password"
           id="password"
+          name="password"
           value={password}
           onValueChange={(value) => setPasswordInput(value)}
           placeholder="Enter your configuration password"

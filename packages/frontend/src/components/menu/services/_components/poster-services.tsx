@@ -39,7 +39,7 @@ export function PosterServices() {
 
       {(!userData.posterService || userData.posterService === 'rpdb') && (
         <PasswordInput
-          autoComplete="off"
+          autoComplete="new-password"
           label="RPDB API Key"
           help={
             <span>
@@ -63,7 +63,7 @@ export function PosterServices() {
 
       {userData.posterService === 'top-poster' && (
         <PasswordInput
-          autoComplete="off"
+          autoComplete="new-password"
           label="TOP Posters API Key"
           help={
             <span>
@@ -138,7 +138,7 @@ export function PosterServices() {
       {userData.posterService === 'openposterdb' && (
         <>
           <PasswordInput
-            autoComplete="off"
+            autoComplete="new-password"
             label="OpenPosterDB API Key"
             help={
               <span>

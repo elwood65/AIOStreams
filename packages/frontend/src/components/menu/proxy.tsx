@@ -150,6 +150,7 @@ function Content() {
             <div className="space-y-2">
               <PasswordInput
                 label="URL"
+                autoComplete="new-password"
                 value={userData.proxy?.url ?? ''}
                 onValueChange={(v) => {
                   setUserData((prev) => ({
@@ -170,6 +171,7 @@ function Content() {
             <div className="space-y-2">
               <PasswordInput
                 label="Public URL (optional)"
+                autoComplete="new-password"
                 value={userData.proxy?.publicUrl ?? ''}
                 onValueChange={(v) => {
                   setUserData((prev) => ({
@@ -203,6 +205,7 @@ function Content() {
           <div className="space-y-2">
             <PasswordInput
               label="Credentials"
+              autoComplete="new-password"
               value={userData.proxy?.credentials ?? ''}
               onValueChange={(v) => {
                 setUserData((prev) => ({

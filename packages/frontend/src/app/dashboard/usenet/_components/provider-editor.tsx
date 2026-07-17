@@ -763,7 +763,7 @@ function ProviderRow({
             <BasicField label="Password" className="lg:col-span-2">
               <PasswordInput
                 value={d.password}
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder={d.hasPassword ? '•••••••• (unchanged)' : ''}
                 onValueChange={(v) => onChange({ password: v })}
               />

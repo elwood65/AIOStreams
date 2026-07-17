@@ -16,7 +16,7 @@ export function MetadataServices() {
            determine when to move to the next season. Some addons in the marketplace will require one or the other too.`}
       >
         <PasswordInput
-          autoComplete="off"
+          autoComplete="new-password"
           label="TMDB Read Access Token"
           help={
             <>
@@ -43,7 +43,7 @@ export function MetadataServices() {
           }}
         />
         <PasswordInput
-          autoComplete="off"
+          autoComplete="new-password"
           label="TMDB API Key"
           help={
             <span>
@@ -74,7 +74,7 @@ export function MetadataServices() {
         description="Provide your TVDB API key to also fetch metadata from TVDB."
       >
         <PasswordInput
-          autoComplete="off"
+          autoComplete="new-password"
           label="TVDB API Key"
           value={userData.tvdbApiKey}
           placeholder="Enter your TVDB API Key"

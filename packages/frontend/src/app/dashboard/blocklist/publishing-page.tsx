@@ -703,6 +703,7 @@ function PublicExportModal({
         <TextInput
           type="password"
           label="Password"
+          autoComplete="new-password"
           placeholder="No password"
           value={password}
           disabled={!!env.publicExportPassword}

@@ -252,7 +252,7 @@ const TemplateOption: React.FC<TemplateOptionProps> = ({
             }
             required={required}
             disabled={isDisabled}
-            autoComplete="off"
+            autoComplete="new-password"
             minLength={
               constraints?.forceInUi !== false ? constraints?.min : undefined
             }
@@ -550,6 +550,7 @@ const TemplateOption: React.FC<TemplateOptionProps> = ({
                 }
                 required={required}
                 disabled={isDisabled}
+                autoComplete="new-password"
               />
               {oauth?.oauthResultField?.description && (
                 <div className="text-sm text-[--muted] mt-2">
@@ -846,6 +847,7 @@ export function NNTPServersInput({
                   />
                   <TextInput
                     label="Username"
+                    autoComplete="off"
                     value={server.username ?? ''}
                     onValueChange={(v) =>
                       handleServerChange(index, 'username', v)
@@ -855,6 +857,7 @@ export function NNTPServersInput({
                   />
                   <PasswordInput
                     label="Password"
+                    autoComplete="new-password"
                     value={server.password ?? ''}
                     onValueChange={(v) =>
                       handleServerChange(index, 'password', v)

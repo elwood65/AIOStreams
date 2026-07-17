@@ -486,11 +486,13 @@ export function ParentConfig() {
             <TextInput
               label="Parent UUID"
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              autoComplete="off"
               value={uuidInput}
               onValueChange={setUuidInput}
             />
             <PasswordInput
               label="Parent Password"
+              autoComplete="off"
               value={passwordInput}
               onValueChange={setPasswordInput}
             />

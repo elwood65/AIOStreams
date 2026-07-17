@@ -53,6 +53,7 @@ function SecretTextField({
       <div className="flex items-center gap-2">
         <div className="flex-1">
           <PasswordInput
+            autoComplete="new-password"
             value={isClearing ? '' : (value ?? '')}
             placeholder={
               isClearing

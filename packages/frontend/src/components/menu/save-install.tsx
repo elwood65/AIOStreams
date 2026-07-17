@@ -194,6 +194,7 @@ function CreateConfigCard({
           <PasswordInput
             label="Password"
             id="password"
+            name="new-password"
             value={newPassword}
             onValueChange={onNewPasswordChange}
             placeholder="Enter a password to protect your configuration"
@@ -204,6 +205,7 @@ function CreateConfigCard({
             <PasswordInput
               label="Confirm Password"
               id="confirm-password"
+              name="confirm-new-password"
               value={confirmNewPassword}
               onValueChange={onConfirmNewPasswordChange}
               placeholder="Re-enter your password"
@@ -1761,9 +1763,23 @@ function Content() {
           }
         >
           <form onSubmit={handleChangePassword} className="space-y-4">
+            {/* invisible but not display:none, so password managers pair the
+                new password with the UUID and update the right entry */}
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              value={uuid ?? ''}
+              readOnly
+              aria-hidden="true"
+              tabIndex={-1}
+              className="sr-only"
+            />
             <PasswordInput
               id="change-current-password"
               label="Current Password"
+              name="current-password"
+              autoComplete="current-password"
               value={changePasswordData.currentPassword}
               required
               placeholder="Enter your current password"
@@ -1777,6 +1793,8 @@ function Content() {
             <PasswordInput
               id="change-new-password"
               label="New Password"
+              name="new-password"
+              autoComplete="new-password"
               value={changePasswordData.newPassword}
               required
               placeholder="Enter your new password"
@@ -1790,6 +1808,8 @@ function Content() {
             <PasswordInput
               id="change-confirm-new-password"
               label="Confirm New Password"
+              name="confirm-new-password"
+              autoComplete="new-password"
               value={changePasswordData.confirmNewPassword}
               required
               placeholder="Re-enter your new password"
@@ -1846,6 +1866,8 @@ function Content() {
             <div className="space-y-4">
               <PasswordInput
                 label="Password"
+                id="delete-confirm-password"
+                name="password"
                 value={confirmDeletionPassword}
                 required
                 placeholder="Enter your password to confirm deletion"

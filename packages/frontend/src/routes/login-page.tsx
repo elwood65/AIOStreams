@@ -102,6 +102,11 @@ export function LoginPage() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <TextInput
             label="Username"
+            id="username"
+            name="username"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             value={username}
             required
             autoFocus
@@ -110,6 +115,8 @@ export function LoginPage() {
           />
           <PasswordInput
             label="Password"
+            id="password"
+            name="password"
             value={password}
             required
             placeholder="Enter your password"
