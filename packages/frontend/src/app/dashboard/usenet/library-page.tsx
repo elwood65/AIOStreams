@@ -107,16 +107,35 @@ const DEFAULT_SORT_DIR: Record<LibrarySort, LibrarySortDir> = {
 
 type LibraryView = 'grid' | 'list';
 
-/** Entries rendered per page (clean for the 2- and 3-column grids). */
-const PAGE_SIZE = 15;
+/** Selectable entries-per-page counts; 15 (the default) tiles the 3/5-col grids. */
+const PAGE_SIZE_OPTIONS = [15, 30, 50, 100] as const;
+const DEFAULT_PAGE_SIZE = 15;
+
+/** Options for the page-size Select. */
+const PAGE_SIZE_SELECT_OPTIONS = PAGE_SIZE_OPTIONS.map((n) => ({
+  value: String(n),
+  label: `${n} / page`,
+}));
 
 const VIEW_STORAGE_KEY = 'usenet.library.view';
+const PAGE_SIZE_STORAGE_KEY = 'usenet.library.pageSize';
 
 function loadView(): LibraryView {
   try {
     return localStorage.getItem(VIEW_STORAGE_KEY) === 'list' ? 'list' : 'grid';
   } catch {
     return 'grid';
+  }
+}
+
+function loadPageSize(): number {
+  try {
+    const n = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+    return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n)
+      ? n
+      : DEFAULT_PAGE_SIZE;
+  } catch {
+    return DEFAULT_PAGE_SIZE;
   }
 }
 
@@ -596,6 +615,7 @@ export function UsenetLibraryPage() {
   const [sortField, setSortField] = React.useState<LibrarySort>('activity');
   const [sortDir, setSortDir] = React.useState<LibrarySortDir>('desc');
   const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState<number>(loadPageSize);
 
   // Picking a criterion resets to its natural direction (newest/largest/A–Z);
   // the toggle then flips it. Keeps "Name" defaulting to A–Z, "Size" to largest.
@@ -606,7 +626,10 @@ export function UsenetLibraryPage() {
 
   // Reset to the first page whenever the filter, search or sort changes, so the
   // user can't be stranded on an out-of-range page of a now-smaller result set.
-  React.useEffect(() => setPage(1), [status, search, sortField, sortDir]);
+  React.useEffect(
+    () => setPage(1),
+    [status, search, sortField, sortDir, pageSize]
+  );
 
   const setViewPersisted = (v: LibraryView) => {
     setView(v);
@@ -617,13 +640,22 @@ export function UsenetLibraryPage() {
     }
   };
 
+  const setPageSizePersisted = (n: number) => {
+    setPageSize(n);
+    try {
+      localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(n));
+    } catch {
+      /* ignore storage failures (private mode, quota) */
+    }
+  };
+
   const query = useUsenetLibrary({
     statuses: status === 'all' ? [] : [status],
     search,
     sort: sortField,
     dir: sortDir,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   });
   const del = useDeleteLibraryEntry();
   const delAll = useDeleteAllLibraryEntries();
@@ -634,7 +666,7 @@ export function UsenetLibraryPage() {
 
   const entries = query.data?.entries ?? [];
   const total = query.data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   // Clamp the page if the total shrank (e.g. after deletions).
   React.useEffect(() => {
@@ -796,28 +828,28 @@ export function UsenetLibraryPage() {
     <div className="space-y-4 overflow-x-hidden">
       <AddNzb />
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
         <TextInput
           leftIcon={<BiSearch />}
           placeholder="Search by name…"
           value={searchInput}
           onValueChange={setSearchInput}
-          fieldClass="lg:flex-1 lg:min-w-0"
+          fieldClass="xl:flex-1 xl:min-w-0"
         />
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:shrink-0">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:shrink-0">
           <Select
             value={status}
             options={STATUS_OPTIONS}
             onValueChange={(v) => setStatus(v as LibraryStatus | 'all')}
-            fieldClass="sm:w-36 sm:flex-auto lg:flex-none"
+            fieldClass="sm:w-36 sm:flex-auto xl:flex-none"
           />
           {/* Sort criterion + a direction toggle (asc/desc). */}
-          <div className="flex items-stretch gap-2 sm:flex-auto lg:flex-none">
+          <div className="flex items-stretch gap-2 sm:flex-auto xl:flex-none">
             <Select
               value={sortField}
               options={SORT_FIELD_OPTIONS}
               onValueChange={(v) => onSortFieldChange(v as LibrarySort)}
-              fieldClass="sm:w-40 sm:flex-auto lg:flex-none"
+              fieldClass="sm:w-40 sm:flex-auto xl:flex-none"
             />
             <Tooltip
               trigger={
@@ -835,6 +867,12 @@ export function UsenetLibraryPage() {
               {sortDir === 'asc' ? 'Ascending' : 'Descending'}
             </Tooltip>
           </div>
+          <Select
+            value={String(pageSize)}
+            options={PAGE_SIZE_SELECT_OPTIONS}
+            onValueChange={(v) => setPageSizePersisted(Number(v))}
+            fieldClass="sm:w-32 sm:flex-auto xl:flex-none"
+          />
           <div className="flex items-center justify-between gap-2 sm:justify-start sm:shrink-0">
             <div className="hidden sm:block">
               <ViewToggle value={view} onChange={setViewPersisted} />
@@ -997,8 +1035,8 @@ export function UsenetLibraryPage() {
       {totalPages > 1 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-[--muted] tabular-nums">
-            Showing {(page - 1) * PAGE_SIZE + (entries.length > 0 ? 1 : 0)}–
-            {Math.min(page * PAGE_SIZE, total)} of {total}
+            Showing {(page - 1) * pageSize + (entries.length > 0 ? 1 : 0)}–
+            {Math.min(page * pageSize, total)} of {total}
           </span>
           <Pagination>
             <PaginationTrigger
