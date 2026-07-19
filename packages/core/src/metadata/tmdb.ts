@@ -29,6 +29,7 @@ const ALTERNATIVE_TITLES_PATH = '/alternative_titles';
 const ID_CACHE_TTL = 30 * 24 * 60 * 60; // 30 days
 const TITLE_CACHE_TTL = 7 * 24 * 60 * 60; // 7 days
 const AUTHORISATION_CACHE_TTL = 2 * 24 * 60 * 60; // 2 days
+const EPISODE_CACHE_TTL = 6 * 60 * 60; // 6 hours
 
 // Zod schemas for API responses
 const GenreSchema = z.object({
@@ -160,6 +161,12 @@ export class TMDBMetadata {
   private readonly apiKey: string | undefined;
   private static readonly validationCache: Cache<string, boolean> =
     Cache.getInstance<string, boolean>('tmdb_validation');
+  private static readonly episodeCache: Cache<
+    string,
+    { airDate?: string; runtime?: number }
+  > = Cache.getInstance<string, { airDate?: string; runtime?: number }>(
+    'tmdb_episode'
+  );
   public constructor(auth?: { accessToken?: string; apiKey?: string }) {
     if (
       !auth?.accessToken &&
@@ -498,6 +505,11 @@ export class TMDBMetadata {
     seasonNumber: number,
     episodeNumber: number
   ): Promise<{ airDate?: string; runtime?: number } | undefined> {
+    const cacheKey = `${tmdbId}:${seasonNumber}:${episodeNumber}`;
+    const cached = await TMDBMetadata.episodeCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
     const url = new URL(
       API_BASE_URL +
         `/tv/${tmdbId}/season/${seasonNumber}/episode/${episodeNumber}`
@@ -507,6 +519,10 @@ export class TMDBMetadata {
       timeout: 5000,
       headers: this.getHeaders(),
     });
+    if (response.status === 404) {
+      // episode doesn't exist under TMDB's numbering scheme
+      return undefined;
+    }
     if (!response.ok) {
       throw new Error(
         `Failed to fetch episode details: ${response.statusText}`
@@ -514,10 +530,12 @@ export class TMDBMetadata {
     }
     const json = await response.json();
     const episodeData = TVEpisodeDetailsSchema.parse(json);
-    return {
+    const details = {
       airDate: episodeData.air_date ?? undefined,
       runtime: episodeData.runtime ?? undefined,
     };
+    await TMDBMetadata.episodeCache.set(cacheKey, details, EPISODE_CACHE_TTL);
+    return details;
   }
 
   public async getNextEpisodeAirDate(

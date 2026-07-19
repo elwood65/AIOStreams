@@ -17,6 +17,8 @@ import {
   ProwlarrAddon,
   TemplateManager,
   SeaDexDataset,
+  SceneMappingDataset,
+  IdMappingDataset,
   ensureConfigAccessKey,
   warnLegacyAuthVarsIfNeeded,
   startAnalytics,
@@ -190,6 +192,24 @@ async function initialiseSeaDexDataset() {
   } catch {}
 }
 
+async function initialiseSceneMappingDataset() {
+  if (!appConfig.metadata.sceneMappings.enabled) {
+    return;
+  }
+  try {
+    await SceneMappingDataset.getInstance().initialise();
+  } catch {}
+}
+
+async function initialiseIdMappingDataset() {
+  if (!appConfig.metadata.idMappings.enabled) {
+    return;
+  }
+  try {
+    await IdMappingDataset.getInstance().initialise();
+  } catch {}
+}
+
 async function initialiseProwlarr() {
   try {
     await ProwlarrAddon.fetchpreconfiguredIndexers();
@@ -219,6 +239,8 @@ async function start() {
     await initialiseRedis();
     initialiseAnimeDatabase();
     initialiseSeaDexDataset();
+    initialiseSceneMappingDataset();
+    initialiseIdMappingDataset();
     RegexAccess.initialise();
     SelAccess.initialise();
     await initialiseProwlarr();

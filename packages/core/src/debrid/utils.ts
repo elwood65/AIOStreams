@@ -136,7 +136,8 @@ export function buildResolveKey(
 ): string {
   const { type, hash, fileIndex } = playbackInfo;
   const nzb = playbackInfo.type === 'usenet' ? playbackInfo.nzb : undefined;
-  const { season, episode, absoluteEpisode } = playbackInfo.metadata ?? {};
+  const { season, episode, absoluteEpisode, airDates } =
+    playbackInfo.metadata ?? {};
   const parts: (string | number)[] = [
     prefix,
     serviceName,
@@ -149,6 +150,7 @@ export function buildResolveKey(
     season ?? '-',
     episode ?? '-',
     absoluteEpisode ?? '-',
+    airDates?.[0] ?? '-',
     filename ?? '-',
   ];
   if (flags !== undefined) {
@@ -294,6 +296,11 @@ export const isEpisodeWrong = (
   parsed: ParsedResult,
   metadata?: TitleMetadata
 ) => {
+  // a parsed release date is authoritative when the requested air date is known
+  const parsedDate = parsed.date || undefined;
+  if (parsedDate && metadata?.airDates?.length) {
+    return !metadata.airDates.includes(parsedDate);
+  }
   if (
     parsed.episodes?.length &&
     metadata?.episode &&
@@ -486,7 +493,17 @@ export async function selectFileInTorrentOrNZB(
       }
     }
 
-    if (parsed && !isEpisodeWrong(parsed, metadata)) {
+    const parsedDate = parsed?.date || undefined;
+    if (parsedDate && metadata?.airDates?.length) {
+      if (metadata.airDates.includes(parsedDate)) {
+        score += 800;
+        fileReport.scoreBreakdown.episodeMatchType = 'date';
+        fileReport.scoreBreakdown.episodeScore = 800;
+      } else {
+        score -= 800;
+        fileReport.scoreBreakdown.wrongDatePenalty = -800;
+      }
+    } else if (parsed && !isEpisodeWrong(parsed, metadata)) {
       const parsedEpisodesCount = parsed.episodes?.length || 0;
       const parsedHasSeason = parsed.seasons && parsed.seasons.length > 0;
       const isExactMatch = parsedEpisodesCount === 1;
@@ -592,7 +609,8 @@ export async function selectFileInTorrentOrNZB(
     }
     if (
       !parsed?.episodes?.length &&
-      (metadata?.episode || metadata?.absoluteEpisode)
+      (metadata?.episode || metadata?.absoluteEpisode) &&
+      !metadata?.isDateBased
     ) {
       score -= 500;
       fileReport.scoreBreakdown.missingEpisodePenalty = -500;

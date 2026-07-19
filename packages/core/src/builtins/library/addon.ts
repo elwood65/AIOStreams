@@ -378,6 +378,8 @@ export class LibraryAddon extends BaseDebridAddon<LibraryAddonConfig> {
         episode: meta.episode,
         absoluteEpisode: meta.absoluteEpisode,
         relativeAbsoluteEpisode: meta.relativeAbsoluteEpisode,
+        airDates: meta.airDates,
+        isDateBased: meta.isDateBased,
       };
       metadataId = getSimpleTextHash(JSON.stringify(titleMetadata));
       await metadataStore().set(

@@ -70,4 +70,16 @@ export interface Metadata {
   nextAirDate?: string;
   firstAiredDate?: string;
   lastAiredDate?: string;
+  /** Requested series/season is date-based (releases named by air date, e.g. talk shows). */
+  isDateBased?: boolean;
+  /** Candidate local air dates ('YYYY-MM-DD') for the requested episode. Usually length 1. */
+  episodeAirDates?: string[];
+  /** episodeAirDates[0], the highest-priority date. */
+  episodeAirDate?: string;
+  /** Season number the requested season resolved to (differs from the request under ordinal fallback). */
+  resolvedSeasonNumber?: number;
+  /** First episode number of the resolved season (>1 means continuous absolute numbering). */
+  resolvedSeasonFirstEpisode?: number;
+  /** Scene-mapping search titles for this series, best (non-identity) first. */
+  sceneTitles?: string[];
 }

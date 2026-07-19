@@ -56,6 +56,77 @@ export const metadataSchema = {
       secret: false,
     },
   },
+  idMappings: {
+    enabled: {
+      schema: z.boolean(),
+      default: true,
+      label: 'ID mappings',
+      description:
+        'Fetch a keyless cross-provider (imdb/tvdb/tmdb) ID mapping dataset used to fill missing ids without extra API calls and to enable the keyless metadata fallback.',
+      env: 'ID_MAPPINGS_ENABLED',
+      requiresRestart: true,
+      secret: false,
+    },
+    tvUrl: {
+      schema: z.string(),
+      default:
+        'https://raw.githubusercontent.com/0xConstant1/Wikidata-Fetcher/main/data/tv_mappings.csv',
+      label: 'ID mappings TV URL',
+      description: 'URL of the TV ID mapping CSV.',
+      env: 'ID_MAPPINGS_TV_URL',
+      requiresRestart: true,
+      secret: false,
+    },
+    movieUrl: {
+      schema: z.string(),
+      default:
+        'https://raw.githubusercontent.com/0xConstant1/Wikidata-Fetcher/main/data/movie_mappings.csv',
+      label: 'ID mappings movie URL',
+      description: 'URL of the movie ID mapping CSV.',
+      env: 'ID_MAPPINGS_MOVIE_URL',
+      requiresRestart: true,
+      secret: false,
+    },
+    refreshInterval: {
+      schema: seconds,
+      default: 1 * 24 * 60 * 60,
+      label: 'ID mappings refresh interval (s)',
+      description: 'Refresh interval for the ID mapping dataset.',
+      env: 'ID_MAPPINGS_REFRESH_INTERVAL',
+      requiresRestart: true,
+      secret: false,
+    },
+  },
+  sceneMappings: {
+    enabled: {
+      schema: z.boolean(),
+      default: true,
+      label: 'Scene mappings',
+      description:
+        'Fetch scene title mappings (e.g. "Stephen Colbert" for The Late Show) used for search queries and title matching.',
+      env: 'SCENE_MAPPINGS_ENABLED',
+      requiresRestart: true,
+      secret: false,
+    },
+    url: {
+      schema: z.string(),
+      default: 'https://services.sonarr.tv/v1/scenemapping',
+      label: 'Scene mappings URL',
+      description: 'URL of the scene mapping list.',
+      env: 'SCENE_MAPPINGS_URL',
+      requiresRestart: true,
+      secret: false,
+    },
+    refreshInterval: {
+      schema: seconds,
+      default: 86400,
+      label: 'Scene mappings refresh interval (s)',
+      description: 'Refresh interval for the scene mapping list.',
+      env: 'SCENE_MAPPINGS_REFRESH_INTERVAL',
+      requiresRestart: true,
+      secret: false,
+    },
+  },
   animeDb: {
     levelOfDetail: {
       schema: z.enum(['none', 'required', 'full']),

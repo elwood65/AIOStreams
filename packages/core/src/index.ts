@@ -14,6 +14,8 @@ export * from './debrid/index.js';
 export * from './usenet/integration/index.js';
 export * from './release-blocklist/index.js';
 export * from './proxy/index.js';
+export { SceneMappingDataset } from './metadata/scene-mappings.js';
+export { IdMappingDataset } from './metadata/id-mappings.js';
 export {
   TorBoxSearchAddon,
   GDriveAddon,

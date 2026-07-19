@@ -50,6 +50,13 @@ export function isItemMatch(
     const season = parsedId.season ? Number(parsedId.season) : undefined;
     const episode = parsedId.episode ? Number(parsedId.episode) : undefined;
 
+    // a parsed release date is authoritative when the requested air date is
+    // known
+    const parsedDate = parsed.date || undefined;
+    if (parsedDate && metadata.airDates?.length) {
+      return metadata.airDates.includes(parsedDate);
+    }
+
     // If the item has season info, check it matches
     if (parsed.seasons && parsed.seasons.length > 0 && season !== undefined) {
       if (!parsed.seasons.includes(season)) {

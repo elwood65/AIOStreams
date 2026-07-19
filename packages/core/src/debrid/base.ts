@@ -187,6 +187,9 @@ const TitleMetadataSchema = z.object({
   episode: z.number().optional(),
   absoluteEpisode: z.number().optional(),
   relativeAbsoluteEpisode: z.number().optional(),
+  // local air dates ('YYYY-MM-DD') of the requested episode for date-based shows
+  airDates: z.array(z.string()).optional(),
+  isDateBased: z.boolean().optional(),
 });
 
 const BasePlaybackInfoSchema = z.object({

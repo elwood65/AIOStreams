@@ -173,6 +173,20 @@ export abstract class BaseNabAddon<
     )
       queryParams.year = metadata.year.toString();
 
+    // date-based shows: numeric season/ep params return nothing, the Sonarr
+    // daily convention (season=YYYY&ep=MM/DD) is what indexers understand
+    const isDailySearch =
+      parsedId.mediaType === 'series' &&
+      metadata.isDateBased &&
+      metadata.episodeAirDate &&
+      queryParams.season !== undefined &&
+      queryParams.ep !== undefined;
+    if (isDailySearch) {
+      const [yyyy, mm, dd] = metadata.episodeAirDate!.split('-');
+      queryParams.season = yyyy;
+      queryParams.ep = `${mm}/${dd}`;
+    }
+
     let queries: string[] = [];
     if (
       !queryParams.imdbid &&
@@ -210,6 +224,7 @@ export abstract class BaseNabAddon<
       const canApplySeasonPackStrategy =
         parsedId.mediaType === 'series' &&
         !this.userData.forceQuerySearch &&
+        !isDailySearch &&
         searchCapabilities.supportedParams.includes('season') &&
         queryParams.season &&
         queryParams.ep;

@@ -981,6 +981,18 @@ class StreamFilterer {
       ) {
         return false;
       }
+
+      // a parsed release date is authoritative when the requested episode's air
+      // date is known: it matches across numbering schemes where SxxExx cannot
+      const parsedDate = stream.parsedFile?.date || undefined;
+      if (
+        type === 'series' &&
+        parsedDate &&
+        requestedMetadata?.episodeAirDates?.length
+      ) {
+        return requestedMetadata.episodeAirDates.includes(parsedDate);
+      }
+
       let seasons = stream.parsedFile?.seasons;
 
       // if the requested content is series and no season or episode info is present, filter out if strict is true

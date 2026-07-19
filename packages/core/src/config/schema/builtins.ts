@@ -326,6 +326,60 @@ export const builtinsSchema = {
       requiresRestart: false,
       secret: false,
     },
+    latinQueriesOnly: {
+      schema: z.boolean(),
+      default: true,
+      label: 'Latin-only search queries',
+      description:
+        'Skip predominantly non-Latin-script titles (e.g. kanji) when building search queries, since scene releases are named in Latin script. Such titles are still used for matching results. Disable if you use native-language indexers (e.g. Cyrillic trackers).',
+      env: 'BUILTIN_SCRAPE_LATIN_QUERIES_ONLY',
+      requiresRestart: false,
+      secret: false,
+    },
+    dateBased: {
+      enabled: {
+        schema: z.boolean(),
+        default: true,
+        label: 'Date-based series search',
+        description:
+          'Detect date-based series (talk shows, WWE, game shows, soaps) and search/match their releases by episode air date instead of season/episode numbers.',
+        env: 'BUILTIN_SCRAPE_DATE_BASED_ENABLED',
+        requiresRestart: false,
+        secret: false,
+      },
+      episodeCountThreshold: {
+        schema: positiveInt,
+        default: 40,
+        label: 'Date-based episode count threshold',
+        description:
+          'A season with at least this many episodes counts towards detecting a series as date-based.',
+        env: 'BUILTIN_SCRAPE_DATE_BASED_EPISODE_COUNT_THRESHOLD',
+        requiresRestart: false,
+        secret: false,
+      },
+      minSeasons: {
+        schema: positiveInt,
+        default: 4,
+        label: 'Date-based minimum seasons',
+        description:
+          'Minimum number of seasons required before the episode count threshold marks a series as date-based. Prevents long single-season dramas from being misdetected.',
+        env: 'BUILTIN_SCRAPE_DATE_BASED_MIN_SEASONS',
+        requiresRestart: false,
+        secret: false,
+      },
+    },
+    absoluteSearch: {
+      languages: {
+        schema: commaSeparatedList,
+        default: ['ko', 'zh', 'ja', 'th'],
+        label: 'Absolute search languages',
+        description:
+          'Original languages (ISO 639-1) whose non-anime series also get absolute-episode search queries (e.g. Asian dramas released as "Show E40"). Requires a TMDB key for original language detection. Empty disables.',
+        env: 'BUILTIN_SCRAPE_ABSOLUTE_SEARCH_LANGUAGES',
+        requiresRestart: false,
+        secret: false,
+      },
+    },
   },
   getTorrent: {
     timeout: {

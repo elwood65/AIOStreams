@@ -12,7 +12,10 @@ import {
   enrichParsedIdWithAnimeEntry,
 } from '../utils/index.js';
 import { SeaDexResult } from '../utils/seadex.js';
-import { calculateAbsoluteEpisode } from '../builtins/utils/general.js';
+import {
+  calculateAbsoluteEpisode,
+  isNonAnimeAbsoluteEligible,
+} from '../builtins/utils/general.js';
 import { iso6391ToLanguage } from '../utils/languages.js';
 
 const logger = createLogger('stream-context');
@@ -195,9 +198,35 @@ export class StreamContext {
           this.type as any
         );
 
-        // Calculate absolute episode for anime
+        // Calculate absolute episode for anime and eligible non-anime titles
         let absoluteEpisode: number | undefined;
         let relativeAbsoluteEpisode: number | undefined;
+        const nonAnimeAbsolute =
+          !this.isAnime && isNonAnimeAbsoluteEligible(metadata);
+        if (
+          nonAnimeAbsolute &&
+          this.parsedId!.episode &&
+          (metadata.resolvedSeasonFirstEpisode ?? 1) > 1
+        ) {
+          // episodes are already numbered continuously across seasons
+          absoluteEpisode = Number(this.parsedId!.episode);
+        } else if (
+          nonAnimeAbsolute &&
+          this.parsedId!.season &&
+          this.parsedId!.episode &&
+          metadata.seasons
+        ) {
+          absoluteEpisode = Number(
+            calculateAbsoluteEpisode(
+              this.parsedId!.season,
+              this.parsedId!.episode,
+              metadata.seasons.map(({ season_number, episode_count }) => ({
+                number: season_number.toString(),
+                episodes: episode_count,
+              }))
+            )
+          );
+        }
         if (
           this.isAnime &&
           this.parsedId!.season &&

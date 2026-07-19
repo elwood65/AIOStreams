@@ -9,6 +9,60 @@ const logger = createLogger('builtin:scrape');
 export const createQueryLimit = () =>
   pLimit(appConfig.builtins.scrape.queryConcurrency);
 
+/**
+ * Checks whether a raw release title contains one of the given air dates
+ * ('YYYY-MM-DD')
+ */
+export function titleContainsAirDate(
+  title: string,
+  airDates: string[]
+): boolean {
+  for (const airDate of airDates) {
+    const [yyyy, mm, dd] = airDate.split('-');
+    if (!yyyy || !mm || !dd) continue;
+    const yy = yyyy.slice(2);
+    const s = '[ ._-]';
+    const pattern = new RegExp(
+      `(?:^|[^0-9])(?:` +
+        `${yyyy}${s}${mm}${s}${dd}` +
+        `|${dd}${s}${mm}${s}${yyyy}` +
+        `|${mm}${s}${dd}${s}(?:${yyyy}|${yy})` +
+        `|${dd}${s}${mm}${s}${yy}` +
+        `|${yyyy}${mm}${dd}` +
+        `)(?:[^0-9]|$)`
+    );
+    if (pattern.test(title)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a title is at least half Latin-script letters.
+ */
+export function isPredominantlyLatin(title: string): boolean {
+  const letters = title.match(/\p{L}/gu)?.length ?? 0;
+  if (letters === 0) return true;
+  const latin = title.match(/\p{Script=Latin}/gu)?.length ?? 0;
+  return latin / letters >= 0.5;
+}
+
+/**
+ * Non-anime titles that also get absolute-episode searching
+ */
+export function isNonAnimeAbsoluteEligible(
+  metadata: {
+    originalLanguage?: string;
+    resolvedSeasonFirstEpisode?: number;
+  },
+  languages: string[] = appConfig.builtins.scrape.absoluteSearch.languages
+): boolean {
+  return (
+    (!!metadata.originalLanguage &&
+      languages.includes(metadata.originalLanguage)) ||
+    (metadata.resolvedSeasonFirstEpisode ?? 1) > 1
+  );
+}
+
 export function calculateAbsoluteEpisode(
   season: string,
   episode: string,

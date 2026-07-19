@@ -10,7 +10,7 @@ import {
   ParsedId,
 } from '../../utils/index.js';
 import { config as appConfig } from '../../config/index.js';
-import { createQueryLimit } from '../utils/general.js';
+import { createQueryLimit, titleContainsAirDate } from '../utils/general.js';
 import EztvAPI from './api.js';
 import { NZB, UnprocessedTorrent } from '../../debrid/utils.js';
 import {
@@ -71,7 +71,10 @@ export class EztvAddon extends BaseDebridAddon<EztvAddonConfig> {
       metadata.episode ??
       (parsedId.episode ? Number(parsedId.episode) : undefined);
 
-    if (requestedSeason === undefined || requestedEpisode === undefined) {
+    if (
+      (requestedSeason === undefined || requestedEpisode === undefined) &&
+      !metadata.airDates?.length
+    ) {
       logger.debug('EZTV requires season and episode for series, skipping');
       return [];
     }
@@ -135,8 +138,12 @@ export class EztvAddon extends BaseDebridAddon<EztvAddonConfig> {
     const seasonStr = String(requestedSeason);
     const episodeStr = String(requestedEpisode);
 
+    // date-named uploads carry season/episode "0" on EZTV; match them by air date
+    const airDates = metadata.airDates;
     const matchingTorrents = allTorrents.filter(
-      (t) => t.season === seasonStr && t.episode === episodeStr
+      (t) =>
+        (t.season === seasonStr && t.episode === episodeStr) ||
+        (!!airDates?.length && titleContainsAirDate(t.title, airDates))
     );
 
     logger.info(`EZTV search took ${getTimeTakenSincePoint(start)}`, {
