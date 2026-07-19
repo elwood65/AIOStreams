@@ -124,6 +124,10 @@ const ARCHIVE_WINDOW_BYTES = 1 << 20;
 
 export * from './types.js';
 export * from './holes.js';
+export {
+  MatroskaHoleFillTransform,
+  wrapMatroskaHoleFill,
+} from './ebml/hole-fill-transform.js';
 export * from './nzb/model.js';
 export { isProbablyObfuscated } from './nzb/obfuscation.js';
 export * from './stats/types.js';

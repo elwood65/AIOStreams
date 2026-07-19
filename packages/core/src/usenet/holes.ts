@@ -240,11 +240,97 @@ export interface HoleInfo {
   segmentIndex?: number;
   /** Archive-logical byte offset of the failed window (archive path). */
   windowOffset?: number;
+  /**
+   * Absolute byte offset of the padded span in the target file's decoded byte
+   * space, for the Matroska hole-fill transform.
+   */
+  targetOffset?: number;
   /** Exact decoded bytes that will be zero-filled. */
   bytes: number;
 }
 
 export type HoleDecision = 'pad' | 'fail';
+
+/**
+ * Byte-space twin of {@link HoleAccumulator} for the serve-path Matroska
+ * transform: zero-filled target-file byte ranges, sorted and merged. One
+ * instance is shared per stream session; the integration `onHole` registers
+ * each pad. Adds are idempotent so replays and concurrent range requests stay
+ * consistent.
+ */
+export class HoleByteMap {
+  /** Sorted, non-overlapping, non-adjacent `[start, end)` runs. */
+  private runs: Array<{ start: number; end: number }> = [];
+  private _total = 0;
+
+  get totalBytes(): number {
+    return this._total;
+  }
+
+  /** Register a zero-filled span; merges into overlapping/adjacent runs. */
+  add(start: number, bytes: number): void {
+    if (bytes <= 0) return;
+    let newStart = start;
+    let newEnd = start + bytes;
+    const kept: Array<{ start: number; end: number }> = [];
+    for (const r of this.runs) {
+      if (r.end < newStart || r.start > newEnd) {
+        kept.push(r);
+      } else {
+        this._total -= r.end - r.start;
+        newStart = Math.min(newStart, r.start);
+        newEnd = Math.max(newEnd, r.end);
+      }
+    }
+    kept.push({ start: newStart, end: newEnd });
+    kept.sort((a, b) => a.start - b.start);
+    this.runs = kept;
+    this._total += newEnd - newStart;
+  }
+
+  /** The run containing `offset`, if that byte is zero-filled. */
+  runAt(offset: number): { start: number; end: number } | undefined {
+    // Runs are few (one per confirmed hole); linear scan is fine.
+    return this.runs.find((r) => offset >= r.start && offset < r.end);
+  }
+
+  /**
+   * The next run boundary strictly greater than `offset` (a run start or end),
+   * or undefined when none remain. Used to split a served chunk at hole edges.
+   */
+  nextBoundary(offset: number): number | undefined {
+    let best: number | undefined;
+    for (const r of this.runs) {
+      if (r.start > offset && (best === undefined || r.start < best)) {
+        best = r.start;
+      }
+      if (r.end > offset && (best === undefined || r.end < best)) {
+        best = r.end;
+      }
+    }
+    return best;
+  }
+}
+
+/**
+ * Segment-level Voids the hole-fill transform has placed, keyed by exact
+ * start. Shared per session so a request beginning at a phantom cluster
+ * boundary (players compute it from the intact cluster size and re-request
+ * there) replays the recorded Void instead of serving zeros.
+ */
+export class MatroskaVoidPlan {
+  private voids = new Map<number, number>();
+
+  /** Record a Segment-level Void spanning [start, end). */
+  record(start: number, end: number): void {
+    if (!this.voids.has(start)) this.voids.set(start, end);
+  }
+
+  /** End of a recorded Void starting exactly at `start`, if any. */
+  endAt(start: number): number | undefined {
+    return this.voids.get(start);
+  }
+}
 
 /**
  * Integration-owned decision channel for playback holes (pattern:

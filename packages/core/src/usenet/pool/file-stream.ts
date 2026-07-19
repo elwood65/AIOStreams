@@ -406,6 +406,7 @@ export class FileStream implements SeekableStream {
                 holes.hooks.onHole({
                   nzbFileIndex: holes.fileIndex,
                   segmentIndex: segmentIndex + local,
+                  targetOffset: this.segmentStartByte(segmentIndex + local),
                   bytes,
                 })
             : undefined,
@@ -526,6 +527,17 @@ export class FileStream implements SeekableStream {
     return len * (n - 1) < this._size && this._size <= len * n
       ? len
       : undefined;
+  }
+
+  /**
+   * Decoded start byte of segment `index`, when guaranteed without a fetch.
+   * Defined whenever {@link exactSegmentSize} approves a pad (same sources).
+   */
+  private segmentStartByte(index: number): number | undefined {
+    const known = this.knownRanges.get(index);
+    if (known) return known.begin;
+    const part = this.partGridSize();
+    return part !== undefined ? index * part : undefined;
   }
 
   /**

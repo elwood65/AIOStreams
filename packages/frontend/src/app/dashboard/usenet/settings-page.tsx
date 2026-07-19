@@ -82,6 +82,7 @@ const SECTIONS: { title: string; leaves: string[]; note?: string }[] = [
       'verifyMode',
       'verifyBudgetMs',
       'damagePolicy',
+      'matroskaHoleFill',
       'censusShadowConcurrency',
       'censusMaxLifetime',
     ],

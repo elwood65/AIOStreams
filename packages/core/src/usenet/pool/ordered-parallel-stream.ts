@@ -80,13 +80,14 @@ export class SlotPool {
 
   /**
    * Free every pooled slot whose chunk has provably been consumed. The
-   * allowance covers the downstream holds (at most a relay Readable plus the
-   * HTTP writable, each up to its HWM plus one overflow chunk); it must grow
-   * if the wiring ever gains a larger buffer layer.
+   * allowance covers the downstream holds (a relay Readable, the optional
+   * Matroska hole-fill Transform's writable + readable queues, and the HTTP
+   * writable, each up to its HWM plus one overflow chunk); it must grow if
+   * the wiring ever gains a larger buffer layer.
    */
   reclaim(): void {
     if (this.pushedFifo.length === 0) return;
-    const allowance = 3 * this.maxSlotBytes + 65536;
+    const allowance = 5 * this.maxSlotBytes + 65536;
     const consumed = this.pushedBytes - this.queuedBytes() - allowance;
     while (
       this.pushedFifo.length > 0 &&

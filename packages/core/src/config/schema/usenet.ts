@@ -365,6 +365,19 @@ export const usenetSchema = {
     secret: false,
     ui: HIDDEN,
   },
+  matroskaHoleFill: {
+    schema: z.boolean(),
+    default: true,
+    label: 'Matroska hole repair',
+    description:
+      'When part of an MKV release is missing on every provider, rewrite ' +
+      'the gap into valid Matroska padding instead of raw zeros, so players ' +
+      'skip the damaged seconds instead of stopping playback with an error.',
+    env: 'USENET_MATROSKA_HOLE_FILL',
+    requiresRestart: false,
+    secret: false,
+    ui: HIDDEN,
+  },
   maxNzbSize: {
     schema: byteSize,
     default: 150 * MB,

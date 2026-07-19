@@ -16,6 +16,9 @@ import {
   MAX_PAD_TOTAL_SEGMENTS,
   MAX_PAD_TOTAL_BYTES,
   MAX_PAD_FILE_BYTES_RATIO,
+  HoleByteMap,
+  MatroskaVoidPlan,
+  wrapMatroskaHoleFill,
   type HoleHooks,
   type HoleInfo,
   type HoleDecision,
@@ -38,6 +41,7 @@ import {
   markReleaseDeadForCode,
 } from '../../release-blocklist/feedback.js';
 import { nzbContentKey } from '../../release-blocklist/keys.js';
+import { appConfig } from '../../utils/index.js';
 import { usenetEngineRegistry, getUsenetEngineConfig } from './engine.js';
 import { fetchNzb, parseNzbCached, canonicaliseNzbHash } from './library.js';
 import { noteStreamActivity, pruneStreamActivity } from './damage-policy.js';
@@ -90,6 +94,12 @@ interface UsenetStreamSession {
   lastUsedAt: number;
   lastModified: Date;
   engine: UsenetEngine;
+  /** Zero-filled target-file byte ranges, shared across the range requests. */
+  holeBytes: HoleByteMap;
+  /** Segment-level Voids placed so far, so re-requests reproduce them. */
+  voidPlan: MatroskaVoidPlan;
+  /** Whether the target is a Matroska container (hole-fill eligible). */
+  matroska: boolean;
 }
 
 /** Identity of a resolved (token → file) stream, independent of byte range. */
@@ -213,7 +223,10 @@ function holeHooksFor(
   decoded: UsenetStreamToken,
   entry: UsenetLibraryEntry | undefined,
   sessionKey: string
-): HoleHooks {
+): { hooks: HoleHooks; holeBytes: HoleByteMap } {
+  // onHole is synchronous in the pad path, so every hole registers here
+  // before its zeros reach the serving transform.
+  const holeBytes = new HoleByteMap();
   // Seed with every persisted hole (idempotent adds keep replays stable).
   const acc = new HoleAccumulator();
   for (const f of entry?.files ?? []) {
@@ -283,7 +296,12 @@ function holeHooksFor(
     return 'fail';
   };
 
-  return {
+  const registerHoleBytes = (info: HoleInfo): void => {
+    const off = info.targetOffset ?? info.windowOffset;
+    if (off !== undefined) holeBytes.add(off, info.bytes);
+  };
+
+  const hooks: HoleHooks = {
     onHole(info: HoleInfo): HoleDecision {
       paddedBytesTotal += info.bytes;
       if (
@@ -304,6 +322,7 @@ function holeHooksFor(
         }
         markDegraded();
         persistHoles(info.nzbFileIndex);
+        registerHoleBytes(info);
         return 'pad';
       }
       // Archive path: byte-window space.
@@ -318,6 +337,7 @@ function holeHooksFor(
         return fail(info, 'cumulative unreadable bytes');
       }
       markDegraded();
+      registerHoleBytes(info);
       return 'pad';
     },
     knownHoles(nzbFileIndex: number): ReadonlySet<number> | undefined {
@@ -325,6 +345,7 @@ function holeHooksFor(
       return set.size > 0 ? set : undefined;
     },
   };
+  return { hooks, holeBytes };
 }
 
 /** Open (or reuse) the seekable handle for a resolved token. */
@@ -385,7 +406,12 @@ async function getStreamSession(
     const entry = await UsenetLibraryRepository.get(hash).catch(
       () => undefined
     );
-    const holeHooks = holeHooksFor(hash, decoded, entry, key);
+    const { hooks: holeHooks, holeBytes } = holeHooksFor(
+      hash,
+      decoded,
+      entry,
+      key
+    );
 
     let stream: SeekableStream | undefined;
     let filename = decoded.filename;
@@ -494,6 +520,9 @@ async function getStreamSession(
       lastUsedAt: Date.now(),
       lastModified,
       engine,
+      holeBytes,
+      voidPlan: new MatroskaVoidPlan(),
+      matroska: /\.(mkv|mka|webm)$/i.test(filename ?? ''),
     };
     streamSessions.set(key, session);
     const openedAt = Date.now();
@@ -560,7 +589,16 @@ export async function openNativeUsenetStream(opts: {
   const start = Math.max(0, opts.start ?? 0);
   const end = Math.min(size, opts.end ?? size);
 
-  const stream = session.stream.createReadStream({ start, end });
+  let stream = session.stream.createReadStream({ start, end });
+  if (session.matroska && appConfig.usenet.matroskaHoleFill) {
+    stream = wrapMatroskaHoleFill(stream, {
+      startOffset: start,
+      fileSize: size,
+      holes: session.holeBytes,
+      plan: session.voidPlan,
+      nzbHash: session.hash,
+    });
+  }
   if (opts.signal) addAbortSignal(opts.signal, stream);
   stream.once('close', () => noteStreamActivity(session.hash));
 
