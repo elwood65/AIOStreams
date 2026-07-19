@@ -21,6 +21,7 @@ import {
 import {
   createQueryLimit,
   getTitleLanguagesForUrl,
+  titleContainsAirDate,
 } from '../../utils/general.js';
 
 /**
@@ -181,7 +182,12 @@ export abstract class BaseNabAddon<
       metadata.episodeAirDate &&
       queryParams.season !== undefined &&
       queryParams.ep !== undefined;
+    // preserve the numeric season/ep so we can fall back to them if the daily
+    // search misses
+    let numericFallbackParams: Record<string, string> | undefined;
     if (isDailySearch) {
+      // queryParams still holds the numeric season/ep here
+      numericFallbackParams = { ...queryParams };
       const [yyyy, mm, dd] = metadata.episodeAirDate!.split('-');
       queryParams.season = yyyy;
       queryParams.ep = `${mm}/${dd}`;
@@ -251,6 +257,26 @@ export abstract class BaseNabAddon<
           { season: queryParams.season, episode: queryParams.ep }
         );
         results = await this.fetchResults(searchFunction, fallbackParams);
+      }
+      if (
+        isDailySearch &&
+        numericFallbackParams &&
+        !results.some((r) =>
+          titleContainsAirDate(r.title, metadata.airDates ?? [])
+        )
+      ) {
+        this.logger.debug(
+          'No air-date match for daily search, retrying with numeric season/episode params',
+          {
+            airDate: metadata.episodeAirDate,
+            season: numericFallbackParams.season,
+            episode: numericFallbackParams.ep,
+          }
+        );
+        results = await this.fetchResults(
+          searchFunction,
+          numericFallbackParams
+        );
       }
     }
     this.logger.info(
