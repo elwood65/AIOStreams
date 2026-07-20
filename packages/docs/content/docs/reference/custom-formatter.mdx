@@ -23,8 +23,8 @@ Modifiers are chained with `::`:
 
 ### Config
 
-| Variable             | Type   | Description                                                |
-| -------------------- | ------ | ---------------------------------------------------------- |
+| Variable             | Type   | Description                                                               |
+| -------------------- | ------ | ------------------------------------------------------------------------- |
 | `{config.addonName}` | string | The name of the AIOStreams instance (Branding → Addon name; `ADDON_NAME`) |
 
 ### Stream
@@ -214,39 +214,159 @@ Modifiers are chained with `::`:
 
 ## Modifiers
 
+Modifiers are applied left to right, and each one acts on the result of the last:
+
+```
+{stream.filename::lower::truncate(20)}
+```
+
+Field and modifier names are case-insensitive, so `{stream.filename}` and `{Stream.FileName}` are the same. Whitespace inside the braces is ignored.
+
+Applying a modifier to a field that has no value renders nothing, so `{stream.size::bytes}` is empty rather than an error when the size is unknown. Applying one to the wrong _type_ is an error and is shown inline, e.g. `{stream.filename::bytes}` renders `{unknown_string_modifier(bytes)}`.
+
+### Any Type
+
+| Modifier            | Description                          |
+| ------------------- | ------------------------------------ |
+| `::default('text')` | Use `text` when the value is missing |
+| `::string`          | Convert to string                    |
+
+```
+{stream.quality::default('Unknown')}   ->  BluRay, or Unknown when absent
+{stream.library::string}               ->  true
+```
+
+A quoted value can be used wherever a field is expected, which is useful for piping fixed text through modifiers:
+
+```
+{'n/a'::upper}          ->  N/A
+{'ready'::smallcaps}    ->  ʀᴇᴀᴅʏ
+```
+
 ### String Modifiers
 
-| Modifier                           | Description                                       |
-| ---------------------------------- | ------------------------------------------------- |
-| `::upper`                          | Convert to UPPERCASE                              |
-| `::lower`                          | Convert to lowercase                              |
-| `::smallcaps`                      | Convert to ꜱᴍᴀʟʟ ᴄᴀᴘꜱ                             |
-| `::title`                          | Title Case (capitalise first letter of each word) |
-| `::replace('find', 'replaceWith')` | Replace all occurrences of `find`                 |
-| `::truncate(N)`                    | Truncate to `N` characters and append `…`         |
-| `::length`                         | Return length of the string                       |
-| `::reverse`                        | Reverse the string                                |
+| Modifier                           | Description                                           |
+| ---------------------------------- | ----------------------------------------------------- |
+| `::upper`                          | Convert to UPPERCASE                                  |
+| `::lower`                          | Convert to lowercase                                  |
+| `::smallcaps`                      | Convert letters to ꜱᴍᴀʟʟ ᴄᴀᴘꜱ                         |
+| `::subscript`                      | Convert digits to ₀₁₂₃₄₅₆₇₈₉                          |
+| `::superscript`                    | Convert digits to ⁰¹²³⁴⁵⁶⁷⁸⁹                          |
+| `::translate('from', 'to')`        | Map characters by position                            |
+| `::title`                          | Title Case (capitalise first letter of each word)     |
+| `::replace('find', 'replaceWith')` | Replace all occurrences of `find`                     |
+| `::remove('a', 'b', …)`            | Delete every occurrence of each argument              |
+| `::truncate(N)`                    | Truncate to `N` characters and append `…`             |
+| `::date('pattern')`                | Reformat a date — see [Date patterns](#date-patterns) |
+| `::length`                         | Return length of the string                           |
+| `::reverse`                        | Reverse the string                                    |
+| `::base64`                         | Encode as base64                                      |
+
+`::smallcaps` only affects letters, so it combines with the digit modifiers:
+
+```
+{stream.resolution::smallcaps}              ->  2160ᴘ
+{stream.resolution::subscript::smallcaps}   ->  ₂₁₆₀ᴘ
+```
+
+`::translate` maps each character of `from` to the character at the same position in `to`. Characters without a counterpart are left unchanged, so a shorter `to` never drops text:
+
+```
+{stream.quality::translate('Bl','Яⅼ')}   ->  ЯⅼuRay
+```
 
 ### Number Modifiers
 
-| Modifier                  | Description                                    |
-| ------------------------- | ---------------------------------------------- |
-| `::bytes` / `::bytes10`   | Format as base-10 bytes (KB, MB, GB)           |
-| `::sbytes` / `::sbytes10` | Concise base-10 byte format                    |
-| `::bytes2`                | Format as base-2 bytes (KiB, MiB, GiB)         |
-| `::sbytes2`               | Concise base-2 byte format                     |
-| `::rbytes` / `::rbytes10` | Like `::bytes` but rounded                     |
-| `::rbytes2`               | Like `::bytes2` but rounded                    |
-| `::bitrate`               | Format as bitrate (Kbps, Mbps)                 |
-| `::rbitrate`              | Like `::bitrate` but rounded                   |
-| `::sbitrate`              | Concise bitrate (e.g. `5.2 Mbps`)              |
-| `::time`                  | Format seconds as `1h 30m`                     |
-| `::star`                  | Star rating ★ out of 5 from a 0–100 score      |
-| `::pstar`                 | Padded star rating (always 5 stars e.g. ★★★☆☆) |
-| `::hex`                   | Encode to hexadecimal                          |
-| `::octal`                 | Encode to octal                                |
-| `::binary`                | Encode to binary                               |
-| `::string`                | Convert to string                              |
+| Modifier                  | Description                                                       |
+| ------------------------- | ----------------------------------------------------------------- |
+| `::bytes` / `::bytes10`   | Format as base-10 bytes (KB, MB, GB)                              |
+| `::sbytes` / `::sbytes10` | Concise base-10 byte format                                       |
+| `::bytes2`                | Format as base-2 bytes (KiB, MiB, GiB)                            |
+| `::sbytes2`               | Concise base-2 byte format                                        |
+| `::rbytes` / `::rbytes10` | Like `::bytes` but rounded                                        |
+| `::rbytes2`               | Like `::bytes2` but rounded                                       |
+| `::bitrate`               | Format as bitrate (Kbps, Mbps)                                    |
+| `::rbitrate`              | Like `::bitrate` but rounded                                      |
+| `::sbitrate`              | Concise bitrate (e.g. `5.2 Mbps`)                                 |
+| `::time`                  | Format milliseconds as `1h:23m:45s`                               |
+| `::time('pattern')`       | Format milliseconds — see [Duration patterns](#duration-patterns) |
+| `::star`                  | Star rating ★ out of 5 from a 0–100 score                         |
+| `::pstar`                 | Padded star rating (always 5 stars e.g. ★★★☆☆)                    |
+| `::hex`                   | Encode to hexadecimal                                             |
+| `::octal`                 | Encode to octal                                                   |
+| `::binary`                | Encode to binary                                                  |
+
+### Date & Duration Patterns
+
+`::date('…')` and `::time('…')` take a pattern string, so you can build any style you like instead of picking from a fixed list.
+
+Both share the same rules:
+
+- `%X` is a token, replaced with a value. Everything else is literal text.
+- `%-X` is the unpadded form of `%X` (`7` instead of `07`).
+- `[...]` marks an **optional group**: it disappears when every token inside it is zero. Use it to hide empty units.
+- `%%`, `%[` and `%]` emit a literal `%`, `[` and `]`.
+- An unrecognised token is left as-is, so typos show up in the output.
+
+#### Duration patterns
+
+Used by `::time('…')` on `{stream.duration}`.
+
+| Token | Description          | Example |
+| ----- | -------------------- | ------- |
+| `%H`  | Hours, zero padded   | `01`    |
+| `%-H` | Hours                | `1`     |
+| `%M`  | Minutes, zero padded | `23`    |
+| `%-M` | Minutes              | `23`    |
+| `%S`  | Seconds, zero padded | `45`    |
+| `%-S` | Seconds              | `45`    |
+
+The **largest unit in the pattern carries the overflow**, so a pattern with no `%H` reads minutes as the total:
+
+| Pattern                | 1h 23m 45s   | 45s        |
+| ---------------------- | ------------ | ---------- |
+| `'%H:%M:%S'`           | `01:23:45`   | `00:00:45` |
+| `'%-Hh %-Mm'`          | `1h 23m`     | `0h 0m`    |
+| `'[%-Hh ]%-Mm'`        | `1h 23m`     | `0m`       |
+| `'[%-Hh ]%-Mm[ %-Ss]'` | `1h 23m 45s` | `0m 45s`   |
+| `'%-M min'`            | `83 min`     | `0 min`    |
+
+#### Date patterns
+
+Used by `::date('…')` on `{stream.date}`. Dates are read in UTC; anything that isn't a valid `YYYY-MM-DD` is passed through untouched.
+
+| Token | Description                      | Example   |
+| ----- | -------------------------------- | --------- |
+| `%Y`  | Full year                        | `2023`    |
+| `%y`  | Two-digit year                   | `23`      |
+| `%m`  | Month number, zero padded        | `07`      |
+| `%-m` | Month number                     | `7`       |
+| `%B`  | Month name                       | `July`    |
+| `%b`  | Short month name                 | `Jul`     |
+| `%d`  | Day of month, zero padded        | `04`      |
+| `%-d` | Day of month                     | `4`       |
+| `%o`  | Day of month with ordinal suffix | `4th`     |
+| `%A`  | Weekday name                     | `Tuesday` |
+| `%a`  | Short weekday name               | `Tue`     |
+
+| Pattern       | `2023-07-04`     |
+| ------------- | ---------------- |
+| `'%Y-%m-%d'`  | `2023-07-04`     |
+| `'%-d %b %Y'` | `4 Jul 2023`     |
+| `'%B %o, %Y'` | `July 4th, 2023` |
+| `'%d/%m/%y'`  | `04/07/23`       |
+| `'%b %Y'`     | `Jul 2023`       |
+| `'%A'`        | `Tuesday`        |
+
+Patterns chain with the other modifiers as usual:
+
+```
+{stream.date::date('%B %o, %Y')::upper}   ->  JULY 4TH, 2023
+```
+
+<Callout type="info">
+  `%o` already includes the day number, so write `%B %o` (`July 4th`) — not `%B %-d%o`, which would render `July 44th`.
+</Callout>
 
 ### Array Modifiers
 
@@ -262,7 +382,6 @@ Modifiers are chained with `::`:
 | `::rsort`             | Reverse sort                                           |
 | `::lsort`             | Lexicographic sort (case-sensitive)                    |
 | `::reverse`           | Reverse order                                          |
-| `::string`            | Convert to string                                      |
 
 ### Conditional Modifiers
 
@@ -278,30 +397,80 @@ Conditionals evaluate to `true` or `false` and control what text is shown:
 {stream.seeders::>1["Seeders: {stream.seeders}"||""]}
 ```
 
-| Modifier  | Description                                       | Types                    |
-| --------- | ------------------------------------------------- | ------------------------ |
-| `istrue`  | Value is `true`                                   | `boolean`                |
-| `isfalse` | Value is `false`                                  | `boolean`                |
-| `exists`  | Not null, undefined, empty string, or empty array | `string`, `array`, `any` |
-| `$X`      | Starts with `X` / first array element is `X`      | `string`, `string[]`     |
-| `^X`      | Ends with `X` / last array element is `X`         | `string`, `string[]`     |
-| `~X`      | Contains `X`                                      | `string`, `string[]`     |
-| `=X`      | Exactly equal to `X`                              | `string`, `number`       |
-| `>=X`     | Greater than or equal to `X`                      | `number`                 |
-| `<=X`     | Less than or equal to `X`                         | `number`                 |
-| `>X`      | Greater than `X`                                  | `number`                 |
-| `<X`      | Less than `X`                                     | `number`                 |
+| Modifier          | Description                                       | Types                                     |
+| ----------------- | ------------------------------------------------- | ----------------------------------------- |
+| `istrue`          | Value is `true`                                   | `boolean`                                 |
+| `isfalse`         | Value is `false`                                  | `boolean`                                 |
+| `exists`          | Not null, undefined, empty string, or empty array | `string`, `array`, `any`                  |
+| `in('a', 'b', …)` | Value is one of the listed options                | `string`, `number`, `boolean`, `string[]` |
+| `$X`              | Starts with `X` / first array element is `X`      | `string`, `string[]`                      |
+| `^X`              | Ends with `X` / last array element is `X`         | `string`, `string[]`                      |
+| `~X`              | Contains `X`                                      | `string`, `string[]`                      |
+| `=X`              | Exactly equal to `X`                              | `string`, `number`                        |
+| `>=X`             | Greater than or equal to `X`                      | `number`                                  |
+| `<=X`             | Less than or equal to `X`                         | `number`                                  |
+| `>X`              | Greater than `X`                                  | `number`                                  |
+| `<X`              | Less than `X`                                     | `number`                                  |
 
-<Callout type="info">
-  Both `istrue` and `isfalse` evaluate to `false` when the property is `null` or `undefined`. To handle true/false/null separately, chain two conditionals:
+`in` saves repeating a field across several `=` comparisons, and matches if any element of an array is listed:
 
 ```
-{service.cached::istrue["Cached"||""]}{service.cached::isfalse["Uncached"||""]}
+{service.id::in('torbox','realdebrid')["🟩"||"⬜"]}
+{stream.languages::in('english')["🇬🇧"||""]}
 ```
 
-</Callout>
+A boolean field needs no modifier at all, and accepts an optional third branch for when the value is missing rather than false:
+
+```
+{service.cached["Cached"||"Uncached"||"Unknown"]}
+
+  cached      ->  Cached
+  not cached  ->  Uncached
+  unknown     ->  Unknown
+```
+
+Without a third branch, a missing value renders nothing. `istrue` and `isfalse` both evaluate to `false` for a missing value, so use the third branch when the three states need distinguishing.
+
+### Nesting
+
+A conditional can contain another conditional inside either branch. Quotes belonging to the inner one must be escaped with `\"`:
+
+```
+{stream.resolution::exists["{stream.quality::exists[\"{stream.resolution} {stream.quality}\"||\"{stream.resolution}\"]}"||"Unknown"]}
+
+  2160p + BluRay  ->  2160p BluRay
+  2160p only      ->  2160p
+  neither         ->  Unknown
+```
+
+Nesting is limited to five levels deep. Beyond that the branch is emitted as plain text.
 
 ---
+
+## Optional Groups
+
+`{? ... ?}` renders only when every field inside it has a value. If any is missing, the whole group disappears, including its literal text.
+
+```
+{?📅 {stream.age} ?}
+
+  age known    ->  📅 30d
+  age unknown  ->  (nothing, not even the icon)
+```
+
+Groups nest, so a separator can depend on its own field:
+
+```
+{?[{stream.resolution}{? · {stream.quality}?}]?}
+
+  2160p + BluRay  ->  [2160p · BluRay]
+  2160p only      ->  [2160p]
+  neither         ->  (nothing)
+```
+
+<Callout type="info">
+  A group tests whether the **field** has a value, not whether the rendered text looks empty. `{?{stream.type::replace('debrid','')}?}` still renders, because `stream.type` was present — the modifier just blanked it. This matches `::exists`.
+</Callout>
 
 ## Conditionals
 

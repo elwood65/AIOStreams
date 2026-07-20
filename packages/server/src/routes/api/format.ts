@@ -9,6 +9,8 @@ import {
   APIError,
   constants,
   FormatterContext,
+  validateTemplate,
+  BUILTIN_FORMATTER_DEFINITIONS,
 } from '@aiostreams/core';
 import { formatApiRateLimiter } from '../../middlewares/ratelimit.js';
 import z from 'zod';
@@ -45,8 +47,9 @@ const FormatterContextSchema = z.object({
   anilistId: z.number().optional(),
   malId: z.number().optional(),
   hasSeaDex: z.boolean().optional(),
-  maxRseScore: z.number().optional(),
+  maxSeScore: z.number().optional(),
   maxRegexScore: z.number().optional(),
+  episodeRuntime: z.number().optional(),
 });
 
 function createDummyFormatterContext(
@@ -66,6 +69,7 @@ function createDummyFormatterContext(
     yearEnd: undefined,
     genres: ['Action', 'Thriller'],
     runtime: 120,
+    episodeRuntime: undefined,
     absoluteEpisode: undefined,
     relativeAbsoluteEpisode: undefined,
     originalLanguage: 'English',
@@ -125,7 +129,17 @@ router.post('/', async (req: Request, res: Response) => {
     contextOverrides
   );
 
-  const formatter = createFormatter(formatterContext);
+  let formatter;
+  try {
+    formatter = createFormatter(formatterContext);
+  } catch (error) {
+    throw new APIError(
+      constants.ErrorCode.FORMAT_INVALID_FORMATTER,
+      400,
+      error instanceof Error ? error.message : 'Invalid formatter'
+    );
+  }
+
   const {
     success: streamSuccess,
     error: streamError,
@@ -140,9 +154,31 @@ router.post('/', async (req: Request, res: Response) => {
     );
   }
   const formattedStream = await formatter.format(streamData);
-  res
-    .status(200)
-    .json(createResponse({ success: true, data: formattedStream }));
+
+  const definitions = userDataData.formatter?.definitions;
+  const active =
+    userDataData.formatter?.id === 'custom'
+      ? definitions?.custom
+      : (definitions?.overrides?.[userDataData.formatter?.id ?? ''] ??
+        BUILTIN_FORMATTER_DEFINITIONS[userDataData.formatter?.id ?? '']);
+
+  const warnings = [
+    ...validateTemplate(active?.name ?? '').map((d) => ({
+      ...d,
+      field: 'name',
+    })),
+    ...validateTemplate(active?.description ?? '').map((d) => ({
+      ...d,
+      field: 'description',
+    })),
+  ];
+
+  res.status(200).json(
+    createResponse({
+      success: true,
+      data: { ...formattedStream, ...(warnings.length ? { warnings } : {}) },
+    })
+  );
 });
 
 export default router;

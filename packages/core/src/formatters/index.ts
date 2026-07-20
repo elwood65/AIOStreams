@@ -2,6 +2,10 @@ export * from './base.js';
 export * from './predefined.js';
 export * from './custom.js';
 export * from './utils.js';
+export {
+  validateTemplate,
+  type Diagnostic as TemplateDiagnostic,
+} from './engine/parser.js';
 
 import { BaseFormatter, FormatterContext } from './base.js';
 import {

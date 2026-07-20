@@ -636,7 +636,7 @@ export class StreamContext {
 
   /**
    * Convert context to FormatterContext for formatter initialization.
-   * Requires streams to calculate maxRseScore and maxRegexScore.
+   * Requires streams to calculate maxSeScore and maxRegexScore.
    */
   public toFormatterContext(
     streams?: ParsedStream[]

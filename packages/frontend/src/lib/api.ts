@@ -231,6 +231,12 @@ interface ResolveSyncedResponse {
 interface FormatStreamResponse {
   name: string;
   description: string;
+  warnings?: {
+    index: number;
+    message: string;
+    source: string;
+    field: 'name' | 'description';
+  }[];
 }
 
 interface CatalogInfo {
