@@ -183,7 +183,7 @@ export class BaguettioPreset extends Preset {
     userData: UserData,
     options: Record<string, any>
   ): Promise<Addon[]> {
-    const usableServices = this.getUsableServices(userData, options.services);
+    const usableServices = this.getUsableServices(userData, options.services, options.name);
     const services = usableServices?.map((s) => s.id) || [];
 
     return [this.generateAddon(userData, options, services)];

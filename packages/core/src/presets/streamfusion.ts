@@ -166,7 +166,7 @@ export class StreamFusionPreset extends Preset {
     }
 
     const usableServices =
-      this.getUsableServices(userData, options.services) || [];
+      this.getUsableServices(userData, options.services, options.name) || [];
 
     return [
       this.generateAddon(

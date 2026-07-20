@@ -188,7 +188,8 @@ export abstract class Preset {
 
   protected static getUsableServices(
     userData: UserData,
-    specifiedServices?: ServiceId[]
+    specifiedServices?: ServiceId[],
+    addonName?: string
   ) {
     let usableServices = userData.services?.filter(
       (service) =>
@@ -203,8 +204,15 @@ export abstract class Preset {
           (s) => s.id === service
         );
         if (!userService || !userService.enabled || !userService.credentials) {
+          const sameTypeCount =
+            userData.presets?.filter((p) => p.type === this.METADATA.ID)
+              .length ?? 0;
+          // When multiple instances of the same preset exist (e.g. Newznab),
+          // prefer the user-configured name so the error identifies which one.
+          const displayName =
+            sameTypeCount > 1 && addonName ? addonName : this.METADATA.NAME;
           throw new Error(
-            `You have specified ${meta?.name || service} in your configuration for ${this.METADATA.NAME}, but it is not enabled or has missing credentials`
+            `You have specified ${meta?.name || service} in your configuration for ${displayName}, but it is not enabled or has missing credentials`
           );
         }
       }

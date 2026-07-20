@@ -154,7 +154,7 @@ export class StremthruStorePreset extends StremThruPreset {
       return [this.generateAddon(userData, options, undefined)];
     }
 
-    const usableServices = this.getUsableServices(userData, options.services);
+    const usableServices = this.getUsableServices(userData, options.services, options.name);
     // if no services are usable, throw an error
     if (!usableServices || usableServices.length === 0) {
       throw new Error(

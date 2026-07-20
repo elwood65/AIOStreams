@@ -108,7 +108,7 @@ export class FKStreamPreset extends StremThruPreset {
       return [this.generateAddon(userData, options, undefined)];
     }
 
-    const usableServices = this.getUsableServices(userData, options.services);
+    const usableServices = this.getUsableServices(userData, options.services, options.name);
     // if no services are usable, use p2p
     if (!usableServices || usableServices.length === 0) {
       return [this.generateAddon(userData, options, undefined)];

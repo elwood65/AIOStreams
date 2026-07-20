@@ -344,7 +344,7 @@ export class MediaFusionPreset extends Preset {
     }
 
     const usableServiceIds: (ServiceId | 'p2p')[] | undefined =
-      this.getUsableServices(userData, options.services)?.map(
+      this.getUsableServices(userData, options.services, options.name)?.map(
         (service) => service.id
       );
 

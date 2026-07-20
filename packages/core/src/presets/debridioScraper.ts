@@ -97,7 +97,7 @@ export class DebridioPreset extends Preset {
       );
     }
 
-    const usableServices = this.getUsableServices(userData, options.services);
+    const usableServices = this.getUsableServices(userData, options.services, options.name);
 
     // if no services are usable, return a single addon with no services
     if (!usableServices || usableServices.length === 0) {

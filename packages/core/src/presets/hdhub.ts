@@ -118,7 +118,7 @@ export class HdHubPreset extends Preset {
     userData: UserData,
     options: Record<string, any>
   ): Promise<Addon[]> {
-    const services = this.getUsableServices(userData);
+    const services = this.getUsableServices(userData, undefined, options.name);
     if (services?.find((service) => service.id === constants.TORBOX_SERVICE)) {
       return [
         this.generateAddon(
