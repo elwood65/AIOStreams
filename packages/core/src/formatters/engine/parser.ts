@@ -5,7 +5,7 @@ import {
   ToolNode,
   rawText,
 } from './ast.js';
-import { canonicaliseField } from './fields.js';
+import { canonicaliseField, nearestName, suggestField } from './fields.js';
 import { allModifierNames, prefixOperators } from './modifiers.js';
 import { comparatorNames } from './comparators.js';
 
@@ -54,16 +54,45 @@ const CALL_MODIFIERS: readonly (readonly [string, CallArgumentShape])[] = [
   ['translate', 'quotedPair'],
 ];
 
+const LOOKS_LIKE_EXPRESSION =
+  /^\s*[A-Za-z_][A-Za-z0-9_]*\s*\.\s*[A-Za-z_][A-Za-z0-9_]*/;
+
+/** Caps so a pathological template cannot produce unbounded diagnostic work. */
+const MAX_DIAGNOSTICS = 25;
+const MAX_SPAN_SCAN = 4000;
+const MAX_BRANCH_DEPTH = 5;
+
+/**
+ * Recovery resumes one character past a failed `{`, so text nested inside it is
+ * re-scanned as though it were top level.
+ */
+const NESTED_SAFE_CATEGORIES: ReadonlySet<DiagnosticCategory> = new Set([
+  'unknown-field',
+  'unknown-modifier',
+  'modifier-arguments',
+]);
+
 export interface ParseResult {
   nodes: TemplateNode[];
   /** non-fatal notes for validation surfaces; rendering ignores these */
   diagnostics: Diagnostic[];
 }
 
+export type DiagnosticCategory =
+  | 'unknown-field'
+  | 'unknown-modifier'
+  | 'modifier-arguments'
+  | 'conditional'
+  | 'unterminated'
+  | 'unterminated-group'
+  | 'unparseable';
+
 export interface Diagnostic {
   index: number;
   message: string;
   source: string;
+  category: DiagnosticCategory;
+  suggestion?: string;
 }
 
 /**
@@ -71,7 +100,68 @@ export interface Diagnostic {
  * literal text, so a diagnostic is not grounds for rejecting a config.
  */
 export function validateTemplate(template: string): Diagnostic[] {
-  return parseTemplate(template).diagnostics;
+  const { nodes, diagnostics } = parseTemplate(template);
+  const all = [...diagnostics, ...branchDiagnostics(nodes, template)];
+
+  const seen = new Set<string>();
+  return all.filter((d) => {
+    const key = `${d.index}:${d.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Conditional branches are stored as raw strings and only compiled at render
+ * time, so nothing else ever validates them. Walked here rather than in
+ * `parseTemplate` to keep this off the render path.
+ */
+function branchDiagnostics(
+  nodes: TemplateNode[],
+  template: string,
+  anchor?: number,
+  depth = 0
+): Diagnostic[] {
+  if (depth > MAX_BRANCH_DEPTH) return [];
+  const out: Diagnostic[] = [];
+  // nodes come out in document order, so a moving search survives repeats
+  let cursor = 0;
+  for (const node of nodes) {
+    if (node.kind === 'group') {
+      out.push(...branchDiagnostics(node.nodes, template, anchor, depth + 1));
+      continue;
+    }
+    if (node.kind !== 'expression') continue;
+
+    let index = anchor ?? 0;
+    if (anchor === undefined) {
+      const found = template.indexOf(node.source, cursor);
+      if (found >= 0) {
+        index = found;
+        cursor = found + node.source.length;
+      }
+    }
+
+    if (!node.check) continue;
+    for (const branch of [
+      node.check.trueTemplate,
+      node.check.falseTemplate,
+      node.check.absentTemplate,
+    ]) {
+      if (!branch) continue;
+      const inner = parseTemplate(branch);
+      out.push(
+        ...inner.diagnostics.map((d) => ({
+          ...d,
+          index,
+          message: `inside conditional branch: ${d.message}`,
+        })),
+        ...branchDiagnostics(inner.nodes, branch, index, depth + 1)
+      );
+    }
+  }
+  return out;
 }
 
 class Scanner {
@@ -342,18 +432,29 @@ function parseOperand(scanner: Scanner): OperandNode | undefined {
 }
 
 /** `["true"||"false"]`, with an optional third branch for absent. */
+/** Where a conditional stopped parsing. */
+type CheckFailure =
+  | 'no-open'
+  | 'true-branch'
+  | 'missing-or'
+  | 'false-branch'
+  | 'absent-branch'
+  | 'missing-close';
+
 function parseCheck(
-  scanner: Scanner
+  scanner: Scanner,
+  onFail?: (reason: CheckFailure, at: number) => void
 ):
   | { trueTemplate: string; falseTemplate: string; absentTemplate?: string }
   | undefined {
   const start = scanner.pos;
-  const fail = () => {
+  const fail = (reason: CheckFailure) => {
+    onFail?.(reason, scanner.pos);
     scanner.pos = start;
     return undefined;
   };
 
-  if (!scanner.eat('[')) return fail();
+  if (!scanner.eat('[')) return fail('no-open');
 
   /**
    * Brace depth is tracked so a quote inside a nested expression does not close
@@ -383,20 +484,20 @@ function parseCheck(
   };
 
   const trueTemplate = branch();
-  if (trueTemplate === undefined) return fail();
-  if (!scanner.eat('||')) return fail();
+  if (trueTemplate === undefined) return fail('true-branch');
+  if (!scanner.eat('||')) return fail('missing-or');
   const falseTemplate = branch();
-  if (falseTemplate === undefined) return fail();
+  if (falseTemplate === undefined) return fail('false-branch');
 
   // third branch distinguishes absent from false
   let absentTemplate: string | undefined;
   if (scanner.startsWith('||')) {
     scanner.pos += 2;
     absentTemplate = branch();
-    if (absentTemplate === undefined) return fail();
+    if (absentTemplate === undefined) return fail('absent-branch');
   }
 
-  if (!scanner.eat(']')) return fail();
+  if (!scanner.eat(']')) return fail('missing-close');
   return {
     trueTemplate,
     falseTemplate,
@@ -499,6 +600,8 @@ export function parseTemplate(template: string): ParseResult {
   const diagnostics: Diagnostic[] = [];
 
   let literalStart = 0;
+  /** End of the furthest span that has already failed; see NESTED_SAFE_CATEGORIES. */
+  let recoveringUntil = 0;
   const flushLiteral = (end: number) => {
     if (end > literalStart)
       nodes.push(rawText(template.slice(literalStart, end)));
@@ -517,31 +620,55 @@ export function parseTemplate(template: string): ParseResult {
       if (body !== undefined) {
         flushLiteral(braceIndex);
         const inner = parseTemplate(body);
-        diagnostics.push(...inner.diagnostics);
+        // `parseGroupBody` eats `{?` before capturing the body, so body offset 0
+        // sits two characters in; nested groups compose by each adding its own
+        const offset = braceIndex + 2;
+        diagnostics.push(
+          ...inner.diagnostics.map((d) => ({ ...d, index: d.index + offset }))
+        );
         nodes.push({ kind: 'group', nodes: inner.nodes });
         literalStart = scanner.pos;
         continue;
+      }
+      if (diagnostics.length < MAX_DIAGNOSTICS) {
+        diagnostics.push({
+          index: braceIndex,
+          message: 'unterminated group: no matching `?}`',
+          source: template.slice(braceIndex, braceIndex + 2),
+          category: 'unterminated-group',
+        });
       }
     }
 
     const node = parseTool(scanner) ?? parseExpression(scanner);
 
     if (!node) {
-      // only complain when the text was clearly meant as an expression, so
-      // prose containing a stray brace stays prose
       const closing = template.indexOf('}', braceIndex);
       const inner =
         closing === -1 ? '' : template.slice(braceIndex + 1, closing);
-      // a nested `{` may still open a valid expression, so leave it alone
-      if (
-        !inner.includes('{') &&
-        /^\s*[A-Za-z_][A-Za-z0-9_]*\s*\.\s*[A-Za-z_][A-Za-z0-9_]*/.test(inner)
-      ) {
-        diagnostics.push({
-          index: braceIndex,
-          message: `unparseable expression: {${inner}}`,
-          source: template.slice(braceIndex, closing + 1),
-        });
+
+      // Diagnosed over a brace-matched span, independently of the substitution
+      // decision below. That decision governs rendered output and must not
+      // change, so the two are deliberately kept apart.
+      if (diagnostics.length < MAX_DIAGNOSTICS) {
+        const diagnostic = diagnoseSpan(template, braceIndex);
+        const nested = braceIndex < recoveringUntil;
+        if (
+          diagnostic &&
+          (!nested || NESTED_SAFE_CATEGORIES.has(diagnostic.category))
+        ) {
+          diagnostics.push(diagnostic);
+        }
+      }
+      recoveringUntil = Math.max(
+        recoveringUntil,
+        matchBrace(template, braceIndex).end
+      );
+
+      // only substitute when the text was clearly meant as an expression, so
+      // prose containing a stray brace stays prose. a nested `{` may still open
+      // a valid expression, so leave it alone
+      if (!inner.includes('{') && LOOKS_LIKE_EXPRESSION.test(inner)) {
         flushLiteral(braceIndex);
         nodes.push({
           kind: 'raw',
@@ -562,4 +689,215 @@ export function parseTemplate(template: string): ParseResult {
 
   flushLiteral(template.length);
   return { nodes, diagnostics };
+}
+
+// --------------------------------------------------------------- diagnostics
+
+/** Example argument list per shape, so the message can show the fix. */
+const ARGUMENT_EXAMPLES: Record<CallArgumentShape, string> = {
+  quoted: "('text')",
+  quotedPair: "('from', 'to')",
+  replaceArgs: "('find', 'replaceWith')",
+  digits: '(3)',
+  digitsOrPair: '(0, 3)',
+  loose: "('a', 'b')",
+};
+
+/** Extent of the `{...}` opening at `braceIndex`, matching nested braces. */
+function matchBrace(
+  template: string,
+  braceIndex: number
+): { end: number; terminated: boolean } {
+  let depth = 0;
+  const limit = Math.min(template.length, braceIndex + MAX_SPAN_SCAN);
+  for (let i = braceIndex; i < limit; i++) {
+    const char = template[i];
+    if (char === '{') depth += 1;
+    else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return { end: i, terminated: true };
+    }
+  }
+  return { end: limit, terminated: false };
+}
+
+/** Every modifier name the grammar accepts, for near-miss suggestions. */
+function knownModifierNames(): string[] {
+  return [
+    ...new Set([...plainModifiers(), ...CALL_MODIFIERS.map(([name]) => name)]),
+  ];
+}
+
+function isKnownModifier(token: string): boolean {
+  return knownModifierNames().includes(token.toLowerCase());
+}
+
+/**
+ * Classifies an already-failed `{...}` span. Returns undefined when the span was
+ * never expression-like, so prose is left alone.
+ */
+function diagnoseSpan(
+  template: string,
+  braceIndex: number
+): Diagnostic | undefined {
+  const { end, terminated } = matchBrace(template, braceIndex);
+  const source = template.slice(braceIndex, terminated ? end + 1 : end);
+  const inner = terminated ? source.slice(1, -1) : source.slice(1);
+  if (!LOOKS_LIKE_EXPRESSION.test(inner)) return undefined;
+
+  const at = (
+    category: DiagnosticCategory,
+    message: string,
+    suggestion?: string
+  ): Diagnostic => ({
+    index: braceIndex,
+    message,
+    source,
+    category,
+    ...(suggestion ? { suggestion } : {}),
+  });
+
+  /**
+   * `join` and `time` sit in both tables, so the call shape is checked first.
+   */
+  const badArguments = (token: string): Diagnostic => {
+    const lower = token.toLowerCase();
+    const call = CALL_MODIFIERS.find(([name]) => name === lower);
+    return at(
+      'modifier-arguments',
+      call
+        ? `modifier \`${token}\` has invalid arguments; expected \`${lower}${ARGUMENT_EXAMPLES[call[1]]}\``
+        : `modifier \`${token}\` takes no arguments`
+    );
+  };
+
+  const scanner = new Scanner(source);
+  scanner.eat('{');
+  skipSpaces(scanner);
+
+  /** An unknown field is the most common authoring error by far. */
+  const checkHead = (): Diagnostic | undefined => {
+    const headStart = scanner.pos;
+    while (isIdentifierChar(scanner.peek())) scanner.pos += 1;
+    const section = scanner.slice(headStart);
+    if (!section || scanner.peek() !== '.') {
+      // quoted literal or malformed head; the modifier pass may still explain it
+      scanner.pos = headStart;
+      return undefined;
+    }
+    scanner.pos += 1;
+    const propertyStart = scanner.pos;
+    while (isIdentifierChar(scanner.peek())) scanner.pos += 1;
+    const property = scanner.slice(propertyStart);
+    if (!property || canonicaliseField(section, property)) return undefined;
+
+    const suggestions = suggestField(section, property);
+    const hint = suggestions.length
+      ? ` — did you mean \`${suggestions.join('` or `')}\`?`
+      : '';
+    return at(
+      'unknown-field',
+      `unknown field \`${section}.${property}\`${hint}`,
+      suggestions[0]
+    );
+  };
+
+  const checkModifiers = (): Diagnostic | undefined => {
+    while (scanner.startsWith('::')) {
+      const save = scanner.pos;
+      scanner.pos += 2;
+      // a comparator ends this operand rather than extending it
+      if (comparators().some((c) => scanner.startsWith(`${c}::`))) {
+        scanner.pos = save;
+        return undefined;
+      }
+      const modifierStart = scanner.pos;
+      if (parseModifier(scanner)) {
+        // a plain modifier matches even when followed by `(`, leaving the
+        // argument list dangling for `eat('}')` to choke on later
+        if (scanner.peek() === '(') {
+          return badArguments(scanner.slice(modifierStart));
+        }
+        continue;
+      }
+
+      // prefix operators consume almost anything, so are never the culprit
+      if (PREFIX_OPERATORS.some((operator) => scanner.startsWith(operator))) {
+        scanner.pos = save;
+        return undefined;
+      }
+
+      const tokenStart = scanner.pos;
+      while (isIdentifierChar(scanner.peek())) scanner.pos += 1;
+      const token = scanner.slice(tokenStart);
+      if (!token) return undefined;
+      if (isKnownModifier(token)) return badArguments(token);
+
+      const close = nearestName(token.toLowerCase(), knownModifierNames());
+      return at(
+        'unknown-modifier',
+        `unknown modifier \`${token}\`${close ? ` — did you mean \`${close}\`?` : ''}`
+      );
+    }
+    return undefined;
+  };
+
+  // operands, separated by comparators, mirroring parseExpression
+  for (;;) {
+    const head = checkHead();
+    if (head) return head;
+    const modifier = checkModifiers();
+    if (modifier) return modifier;
+
+    if (!scanner.startsWith('::')) break;
+    const save = scanner.pos;
+    scanner.pos += 2;
+    const comparator = comparators().find((c) => scanner.startsWith(`${c}::`));
+    if (!comparator) {
+      scanner.pos = save;
+      break;
+    }
+    scanner.pos += comparator.length + 2;
+  }
+
+  // conditional, re-run the real grammar to find which part gave out
+  if (scanner.peek() === '[') {
+    let failure: { reason: CheckFailure; at: number } | undefined;
+    parseCheck(scanner, (reason, position) => {
+      failure ??= { reason, at: position };
+    });
+    if (failure) {
+      const message = describeCheckFailure(source, failure.reason, failure.at);
+      if (message) return at('conditional', message);
+    }
+  }
+
+  if (!terminated) {
+    return at('unterminated', 'unterminated expression: no closing `}`');
+  }
+
+  return at('unparseable', `unparseable expression: {${inner}}`);
+}
+
+/** Turns a `parseCheck` bail-out into something an author can act on. */
+function describeCheckFailure(
+  source: string,
+  reason: CheckFailure,
+  at: number
+): string | undefined {
+  if (reason === 'no-open') return undefined;
+  if (reason === 'missing-close') {
+    return 'conditional is missing its closing `]`';
+  }
+  if (reason === 'missing-or') {
+    return 'conditional branches must be separated by `||`';
+  }
+
+  if (at >= source.length) {
+    return 'unterminated conditional branch: a nested `{` is missing its `}`, or the branch is missing its closing `"`';
+  }
+  if (source[at] === '\\' && source[at + 1] === '"') {
+    return 'conditional branch starts with an escaped quote `\\"` — escapes only apply one nesting level deeper';
+  }
+  return 'conditional branch must start with `"`';
 }
