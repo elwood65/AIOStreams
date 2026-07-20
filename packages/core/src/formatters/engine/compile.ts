@@ -137,7 +137,15 @@ function resolveExpression<TValue extends Record<string, any>>(
     return resolveOperand(operands[0], parseValue, hooks);
   }
 
-  // mixing operators makes left-to-right evaluation order observable
+  let present = operandPresence(operands[0]);
+  for (let i = 1; i < operands.length; i++) {
+    const next = operandPresence(operands[i]);
+    present =
+      node.comparators[i - 1] === 'or' ? present || next : present && next;
+  }
+
+  // mixing operators makes left-to-right evaluation order observable,
+  // so short-circuiting is limited to uniform and/or chains, and a skipped tail operand is never resolved.
   const allSame = node.comparators.every((c) => c === node.comparators[0]);
   const canShortCircuit =
     allSame && (node.comparators[0] === 'and' || node.comparators[0] === 'or');
@@ -149,12 +157,10 @@ function resolveExpression<TValue extends Record<string, any>>(
 
     const comparator = node.comparators[i - 1];
     if (canShortCircuit) {
-      // presence carries through, or a group containing a short-circuited
-      // chain would treat it as neither present nor absent
       if (comparator === 'and' && result.result === false)
-        return { result: false, present: result.present };
+        return { result: false, present };
       if (comparator === 'or' && result.result === true)
-        return { result: true, present: result.present };
+        return { result: true, present };
     }
 
     const next = resolveOperand(operands[i], parseValue, hooks);
@@ -163,7 +169,6 @@ function resolveExpression<TValue extends Record<string, any>>(
     try {
       result = {
         result: hooks.comparators[comparator](result.result, next.result),
-        present: result.present !== false && next.present !== false,
       };
     } catch (error) {
       return {
@@ -172,7 +177,20 @@ function resolveExpression<TValue extends Record<string, any>>(
     }
   }
 
-  return result;
+  return { result: result.result, present };
+
+  function operandPresence(operand: PreparedOperand): boolean {
+    if (operand.node.literal !== undefined) return true;
+    // default() supplies a value for an absent field, so the operand is present
+    if (
+      operand.modifiers.some(({ source }) =>
+        source.toLowerCase().startsWith('default(')
+      )
+    )
+      return true;
+    const section = parseValue[operand.node.section];
+    return section ? isPresent(section[operand.node.property]) : false;
+  }
 }
 
 function compileNode<TValue extends Record<string, any>>(
