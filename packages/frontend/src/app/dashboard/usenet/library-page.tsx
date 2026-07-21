@@ -20,6 +20,7 @@ import {
   BiSortDown,
   BiCloudUpload,
   BiBlock,
+  BiCheckShield,
   BiRefresh,
   BiDotsVerticalRounded,
 } from 'react-icons/bi';
@@ -53,6 +54,7 @@ import {
   useUsenetLibrary,
   useUsenetLibraryStream,
   useBlockRelease,
+  useUnblockRelease,
   useRequeueEntries,
   useDeleteLibraryEntry,
   useDeleteAllLibraryEntries,
@@ -311,6 +313,7 @@ function EntryActions({
   onBrowse,
   onInfo,
   onBlock,
+  onUnblock,
   onRequeue,
   onDelete,
 }: {
@@ -318,6 +321,7 @@ function EntryActions({
   onBrowse: (e: LibraryEntry) => void;
   onInfo: (e: LibraryEntry) => void;
   onBlock: (e: LibraryEntry) => void;
+  onUnblock: (e: LibraryEntry) => void;
   onRequeue: (hashes: string[]) => void;
   onDelete: (hash: string) => void;
 }) {
@@ -415,11 +419,10 @@ function EntryActions({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() => onBlock(e)}
-                disabled={e.blocked}
+                onSelect={() => (e.blocked ? onUnblock(e) : onBlock(e))}
               >
-                <BiBlock />
-                {e.blocked ? 'Already blocked' : 'Block release'}
+                {e.blocked ? <BiCheckShield /> : <BiBlock />}
+                {e.blocked ? 'Unblock release' : 'Block release'}
               </DropdownMenuItem>
             </>
           )}
@@ -456,6 +459,7 @@ function EntryCard({
   onBrowse,
   onInfo,
   onBlock,
+  onUnblock,
   onRequeue,
   onDelete,
 }: {
@@ -467,6 +471,7 @@ function EntryCard({
   onBrowse: (e: LibraryEntry) => void;
   onInfo: (e: LibraryEntry) => void;
   onBlock: (e: LibraryEntry) => void;
+  onUnblock: (e: LibraryEntry) => void;
   onRequeue: (hashes: string[]) => void;
   onDelete: (hash: string) => void;
 }) {
@@ -524,6 +529,7 @@ function EntryCard({
                 onBrowse={onBrowse}
                 onInfo={onInfo}
                 onBlock={onBlock}
+                onUnblock={onUnblock}
                 onRequeue={onRequeue}
                 onDelete={onDelete}
               />
@@ -575,6 +581,7 @@ function EntryCard({
             onBrowse={onBrowse}
             onInfo={onInfo}
             onBlock={onBlock}
+            onUnblock={onUnblock}
             onRequeue={onRequeue}
             onDelete={onDelete}
           />
@@ -660,9 +667,13 @@ export function UsenetLibraryPage() {
   const del = useDeleteLibraryEntry();
   const delAll = useDeleteAllLibraryEntries();
   const block = useBlockRelease();
+  const unblock = useUnblockRelease();
   const requeue = useRequeueEntries();
   const pending = React.useRef<string[]>([]);
-  const [blockTargets, setBlockTargets] = React.useState<LibraryEntry[]>([]);
+  const [blockTargets, setBlockTargets] = React.useState<{
+    mode: 'block' | 'unblock';
+    entries: LibraryEntry[];
+  }>({ mode: 'block', entries: [] });
 
   const entries = query.data?.entries ?? [];
   const total = query.data?.total ?? 0;
@@ -718,33 +729,49 @@ export function UsenetLibraryPage() {
     },
   });
 
-  const blockCount = blockTargets.length;
+  const blockCount = blockTargets.entries.length;
+  const unblocking = blockTargets.mode === 'unblock';
+  const blockName =
+    blockTargets.entries[0]?.name ?? blockTargets.entries[0]?.nzbHash ?? '';
   const confirmBlock = useConfirmationDialog({
-    title: blockCount > 1 ? 'Block releases' : 'Block release',
-    description:
-      blockCount > 1
+    title: `${unblocking ? 'Unblock' : 'Block'} release${blockCount > 1 ? 's' : ''}`,
+    description: unblocking
+      ? blockCount > 1
+        ? `Allow ${blockCount} releases again on this instance? Any local verdict is dropped and remote lists stop filtering them.`
+        : `Allow "${blockName}" again on this instance? Any local verdict is dropped and remote lists stop filtering it.`
+      : blockCount > 1
         ? `Mark ${blockCount} releases as dead on this instance's release blocklist? Their streams stop appearing in results; undo from the Blocklist page.`
-        : `Mark "${blockTargets[0]?.name ?? blockTargets[0]?.nzbHash ?? ''}" as dead on this instance's release blocklist? Its streams stop appearing in results; undo from the Blocklist page.`,
-    actionText: 'Block',
-    actionIntent: 'alert-subtle',
+        : `Mark "${blockName}" as dead on this instance's release blocklist? Its streams stop appearing in results; undo from the Blocklist page.`,
+    actionText: unblocking ? 'Unblock' : 'Block',
+    actionIntent: unblocking ? 'primary-subtle' : 'alert-subtle',
     onConfirm: () => {
       if (blockCount === 0) return;
-      block
-        .mutateAsync(blockTargets)
+      (unblocking ? unblock : block)
+        .mutateAsync(blockTargets.entries)
         .then(() => {
+          const verb = unblocking ? 'unblocked' : 'blocked';
           toast.success(
             blockCount === 1
-              ? 'Release blocked'
-              : `${blockCount} releases blocked`
+              ? `Release ${verb}`
+              : `${blockCount} releases ${verb}`
           );
           exitSelect();
         })
-        .catch((err: any) => toast.error(err?.message ?? 'Block failed'));
+        .catch((err: any) =>
+          toast.error(
+            err?.message ?? `${unblocking ? 'Unblock' : 'Block'} failed`
+          )
+        );
     },
   });
 
   const onBlock = (entry: LibraryEntry) => {
-    setBlockTargets([entry]);
+    setBlockTargets({ mode: 'block', entries: [entry] });
+    confirmBlock.open();
+  };
+
+  const onUnblock = (entry: LibraryEntry) => {
+    setBlockTargets({ mode: 'unblock', entries: [entry] });
     confirmBlock.open();
   };
 
@@ -759,7 +786,7 @@ export function UsenetLibraryPage() {
       toast.error('None of the selected entries can be blocked');
       return;
     }
-    setBlockTargets(targets);
+    setBlockTargets({ mode: 'block', entries: targets });
     confirmBlock.open();
   };
 
@@ -1023,6 +1050,7 @@ export function UsenetLibraryPage() {
                   onBrowse={setBrowse}
                   onInfo={setInfo}
                   onBlock={onBlock}
+                  onUnblock={onUnblock}
                   onRequeue={onRequeue}
                   onDelete={onDelete}
                 />

@@ -95,7 +95,7 @@ function EntriesView({
 
   const unmark = useMutation({
     mutationFn: (key: string) =>
-      api('POST /dashboard/blocklist/unmark', { body: { key } }),
+      api('POST /dashboard/blocklist/unmark', { body: { releases: [[key]] } }),
     onSuccess: () => {
       toast.success('Release allowed on this instance');
       invalidate();

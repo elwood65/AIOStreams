@@ -150,16 +150,18 @@ const PatchTargetSchema = z.object({
 
 // A release is known by several keys (wd1 fingerprint + nh1 content hash) and
 // is marked under all of them, so a batch of releases is an array of key sets.
+const ReleasesSchema = z
+  .array(z.array(z.string().trim().min(1)).min(1).max(8))
+  .min(1)
+  .max(200);
+
 const MarkSchema = z.object({
-  releases: z
-    .array(z.array(z.string().trim().min(1)).min(1).max(8))
-    .min(1)
-    .max(200),
+  releases: ReleasesSchema,
   verdict: VerdictSchema,
   backbones: z.array(z.string().trim().min(1)).max(50).optional(),
 });
 
-const KeySchema = z.object({ key: z.string().trim().min(1) });
+const UnmarkSchema = z.object({ releases: ReleasesSchema });
 
 function badRequest(res: express.Response, message: string) {
   return res.status(400).json(
@@ -914,11 +916,14 @@ router.delete('/entries', async (req, res, next) => {
 // deletes any local verdict and writes an override suppressing remote ones.
 router.post('/unmark', async (req, res, next) => {
   try {
-    const body = KeySchema.parse(req.body ?? {});
-    if (!isValidReleaseKey(body.key)) {
+    const body = UnmarkSchema.parse(req.body ?? {});
+    const keys = [...new Set(body.releases.flat())];
+    if (!keys.every((k) => isValidReleaseKey(k))) {
       return badRequest(res, 'invalid release key');
     }
-    await ReleaseBlocklistRepository.retract(body.key);
+    for (const key of keys) {
+      await ReleaseBlocklistRepository.retract(key);
+    }
     res
       .status(200)
       .json(createResponse({ success: true, data: await snapshot() }));

@@ -586,6 +586,29 @@ export function useBlockRelease() {
   });
 }
 
+/**
+ * The inverse of {@link useBlockRelease}: drops this instance's verdict for
+ * every key the entries are known by and writes an override so remote lists
+ * stop filtering them too.
+ */
+export function useUnblockRelease() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entries: LibraryEntry[]) =>
+      api('POST /dashboard/blocklist/unmark', {
+        body: {
+          releases: entries
+            .map(releaseBlocklistKeys)
+            .filter((keys) => keys.length > 0),
+        },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...ROOT, 'library'] });
+      qc.invalidateQueries({ queryKey: ['dashboard', 'blocklist'] });
+    },
+  });
+}
+
 export interface RequeueResult {
   requeued: number;
   failed: number;
