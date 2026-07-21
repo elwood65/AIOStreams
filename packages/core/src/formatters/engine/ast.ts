@@ -7,7 +7,17 @@
 
 export type TemplateNode = RawTextNode | ExpressionNode | ToolNode | GroupNode;
 
-export interface RawTextNode {
+/**
+ * Document offsets set by `parseTemplate`, always in document coordinates
+ * (group children are re-based, see `offsetNodes`). Optional so the render path,
+ * which never reads them, is unaffected.
+ */
+export interface NodeSpan {
+  start?: number;
+  end?: number;
+}
+
+export interface RawTextNode extends NodeSpan {
   kind: 'raw';
   text: string;
 }
@@ -16,19 +26,19 @@ export interface RawTextNode {
  * `{? ... ?}` renders only when every field inside it is present, so a prefix
  * and its value disappear together.
  */
-export interface GroupNode {
+export interface GroupNode extends NodeSpan {
   kind: 'group';
   nodes: TemplateNode[];
 }
 
 /** `{tools.newLine}` / `{tools.removeLine}`: layout directives, not values. */
-export interface ToolNode {
+export interface ToolNode extends NodeSpan {
   kind: 'tool';
   tool: 'newLine' | 'removeLine';
 }
 
 /** `{ operand (::comparator:: operand)* (["true"||"false"])? }` */
-export interface ExpressionNode {
+export interface ExpressionNode extends NodeSpan {
   kind: 'expression';
   /** exact source, emitted when rendering falls back to literal text */
   source: string;
@@ -44,6 +54,14 @@ export interface CheckNode {
   falseTemplate: string;
   /** taken when the value is absent rather than false */
   absentTemplate?: string;
+  /**
+   * Offset of each branch's content (the character after its opening `"`), in
+   * the coordinates of whatever string was parsed to produce this node. Used to
+   * map in-branch diagnostics back to a precise position.
+   */
+  trueStart?: number;
+  falseStart?: number;
+  absentStart?: number;
 }
 
 export interface OperandNode {

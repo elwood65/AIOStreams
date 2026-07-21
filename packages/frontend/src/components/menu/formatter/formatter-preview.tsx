@@ -67,12 +67,6 @@ export function FormatterPreview() {
   const [formattedStream, setFormattedStream] = useState<{
     name: string;
     description: string;
-    warnings?: {
-      index: number;
-      message: string;
-      source: string;
-      field: 'name' | 'description';
-    }[];
   } | null>(null);
   const [isFormatting, setIsFormatting] = useState(false);
 
@@ -185,7 +179,10 @@ export function FormatterPreview() {
 
       const context = { userData, maxRegexScore, maxSeScore };
       const formattedData = await getFormattedStream(stream, context);
-      setFormattedStream(formattedData);
+      setFormattedStream({
+        name: formattedData.name,
+        description: formattedData.description,
+      });
     } catch (error) {
       console.error('Error formatting stream:', error);
       toast.error(`Failed to format stream: ${error}`);
@@ -264,26 +261,6 @@ export function FormatterPreview() {
             name={formattedStream?.name}
             description={formattedStream?.description}
           />
-
-          {formattedStream?.warnings?.length ? (
-            <div className="rounded-md border border-amber-900/50 bg-amber-950/30 p-3 space-y-1">
-              <div className="text-sm font-medium text-amber-500">
-                {formattedStream.warnings.length} warning
-                {formattedStream.warnings.length === 1 ? '' : 's'}
-              </div>
-              {formattedStream.warnings.map((warning, i) => (
-                <div
-                  key={i}
-                  className="text-xs text-muted-foreground flex gap-2"
-                >
-                  <span className="text-amber-500/70 shrink-0">
-                    {warning.field}:{warning.index}
-                  </span>
-                  <span className="min-w-0 break-all">{warning.message}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <TextInput

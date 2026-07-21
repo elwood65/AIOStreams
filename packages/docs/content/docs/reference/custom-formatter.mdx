@@ -431,12 +431,18 @@ A boolean field needs no modifier at all, and accepts an optional third branch f
 
 Without a third branch, a missing value renders nothing. `istrue` and `isfalse` both evaluate to `false` for a missing value, so use the third branch when the three states need distinguishing.
 
-### Nesting
-
-A conditional can contain another conditional inside either branch. Quotes belonging to the inner one must be escaped with `\"`:
+Branch text is taken literally. To include a `"` character in a branch, escape it as `\"`:
 
 ```
-{stream.resolution::exists["{stream.quality::exists[\"{stream.resolution} {stream.quality}\"||\"{stream.resolution}\"]}"||"Unknown"]}
+{stream.title::exists["say \"hi\""||""]}  ->  say "hi"
+```
+
+### Nesting
+
+A conditional can contain another conditional inside either branch, and the inner one's quotes need no special treatment: a branch only ends at a quote at the outermost brace level, and a nested conditional is always wrapped in `{…}`, so its quotes are never taken for the outer branch's delimiters. This holds at any depth.
+
+```
+{stream.resolution::exists["{stream.quality::exists["{stream.resolution} {stream.quality}"||"{stream.resolution}"]}"||"Unknown"]}
 
   2160p + BluRay  ->  2160p BluRay
   2160p only      ->  2160p

@@ -155,12 +155,26 @@ const conditionalModifiers = {
   },
 };
 
+/** Plain modifier names grouped by the value type they apply to. */
+export const stringModifierNames: readonly string[] =
+  Object.keys(stringModifiers);
+export const numberModifierNames: readonly string[] =
+  Object.keys(numberModifiers);
+export const arrayModifierNames: readonly string[] =
+  Object.keys(arrayModifiers);
+export const booleanModifierNames: readonly string[] =
+  Object.keys(booleanModifiers);
+/** Argument-free conditionals (`istrue`, `isfalse`, `exists`); apply to any type. */
+export const conditionalModifierNames: readonly string[] = Object.keys(
+  conditionalModifiers.exact
+);
+
 export const allModifierNames: readonly string[] = [
-  ...Object.keys(stringModifiers),
-  ...Object.keys(booleanModifiers),
-  ...Object.keys(numberModifiers),
-  ...Object.keys(arrayModifiers),
-  ...Object.keys(conditionalModifiers.exact),
+  ...stringModifierNames,
+  ...booleanModifierNames,
+  ...numberModifierNames,
+  ...arrayModifierNames,
+  ...conditionalModifierNames,
 ];
 
 export const prefixOperators = Object.keys(conditionalModifiers.prefix).sort(

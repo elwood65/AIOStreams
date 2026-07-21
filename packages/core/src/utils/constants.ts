@@ -1520,33 +1520,106 @@ const LANGUAGES = [
 
 export const SNIPPETS = [
   {
-    name: 'Year + Season + Episode',
-    description:
-      'Outputs a nicely formatted year along with the season and episode number',
-    value:
-      '{stream.year::exists["({stream.year}) "||""]}{stream.seasonEpisode::exists["{stream.seasonEpisode::join(\' • \')}"||""]}',
+    name: 'Resolution',
+    description: 'The resolution, falling back to "Unknown" when unavailable.',
+    value: "{stream.resolution::default('Unknown')}",
+  },
+  {
+    name: 'Title & Year',
+    description: 'Title in Title Case, with the year in brackets when known.',
+    value: '{stream.title::title}{? ({stream.year})?}',
+  },
+  {
+    name: 'Season & Episode',
+    description: 'Season and episode (S01 E05). Hidden for movies.',
+    value: "{?{stream.seasonEpisode::join(' ')}?}",
+  },
+  {
+    name: 'Quality',
+    description: 'Source quality (BluRay, WEB-DL, …). Hidden when unknown.',
+    value: '{?🎥 {stream.quality}?}',
   },
   {
     name: 'File Size',
-    description: 'Outputs the file size of the stream',
-    value: '{stream.size::>0["{stream.size::bytes}"||""]}',
+    description: 'File size, with the folder size appended when present.',
+    value: '{?📦 {stream.size::sbytes}?}{? / {stream.folderSize::sbytes}?}',
+  },
+  {
+    name: 'Bitrate',
+    description: 'Bitrate. Hidden when unavailable.',
+    value: '{?📊 {stream.bitrate::sbitrate}?}',
   },
   {
     name: 'Duration',
-    description: 'Outputs the duration of the stream',
-    value: '{stream.duration::>0["{stream.duration::time}"||""]}',
+    description: 'Runtime.',
+    value: '{?⏱️ {stream.duration::time}?}',
   },
   {
-    name: 'P2P marker',
-    description: 'Displays a [P2P] marker if the stream is a P2P stream',
-    value: '{stream.type::=p2p["[P2P]"||""]}',
+    name: 'Seeders',
+    description: 'Seeder count. Hidden for non-torrents.',
+    value: '{?👤 {stream.seeders}?}',
+  },
+  {
+    name: 'Age',
+    description: 'How long ago the release was posted.',
+    value: '{?📅 {stream.age}?}',
+  },
+  {
+    name: 'HDR / Visual Tags',
+    description: 'Visual tags such as HDR, DV and IMAX.',
+    value: "{?📺 {stream.visualTags::join(' | ')}?}",
+  },
+  {
+    name: 'Audio',
+    description: 'Audio codecs and channel layouts.',
+    value:
+      "{?🔊 {stream.audioTags::join(' | ')}?}{?🎚️ {stream.audioChannels::join(' | ')}?}",
   },
   {
     name: 'Languages',
     description:
-      'Outputs the languages of the stream. Tip: use stream.languageEmojis if you prefer the flags',
-    value:
-      '{stream.languages::exists["{stream.languages::join(\' • \')}"||""]}',
+      'Language flags. Tip: use stream.languageCodes for text codes instead.',
+    value: "{?🌐 {stream.languageEmojis::join(' / ')}?}",
+  },
+  {
+    name: 'Subtitles',
+    description: 'Subtitle language flags.',
+    value: "{?📝 {stream.subtitleEmojis::join(' / ')}?}",
+  },
+  {
+    name: 'Encode / Codec',
+    description: 'Video codec (x265, AV1, …).',
+    value: '{?🎞️ {stream.encode}?}',
+  },
+  {
+    name: 'Release Group',
+    description: 'The release group.',
+    value: '{?🏷️ {stream.releaseGroup}?}',
+  },
+  {
+    name: 'Indexer',
+    description: 'The indexer or tracker the result came from.',
+    value: '{?⚙️ {stream.indexer}?}',
+  },
+  {
+    name: 'Service & Cached',
+    description: 'Debrid service, with a cached (⚡) / uncached (⏳) badge.',
+    value: '{?[{service.shortName}]?}{service.cached[" ⚡"||" ⏳"||""]}',
+  },
+  {
+    name: 'P2P Marker',
+    description: 'Adds a [P2P] marker for torrent streams.',
+    value: '{stream.type::=p2p["[P2P] "||""]}',
+  },
+  {
+    name: 'Message',
+    description: 'Any status message on the stream.',
+    value: '{?ℹ️ {stream.message}?}',
+  },
+  {
+    name: 'New Line',
+    description: 'Forces a line break. Useful inside modifier arguments.',
+    value: '{tools.newLine}',
   },
 ];
 

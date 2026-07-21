@@ -2,11 +2,16 @@ import { SNIPPETS } from '../../../../../core/src/utils/constants';
 import { useDisclosure } from '@/hooks/disclosure';
 import { Button } from '../../ui/button';
 import { Modal } from '@/components/ui/modal';
-import { CopyIcon } from 'lucide-react';
+import { CopyIcon, PlusIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/utils/clipboard';
 
-export function SnippetsButton() {
+export function SnippetsButton({
+  onInsert,
+}: {
+  /** Insert a snippet at the focused editor's caret. Falls back to copy. */
+  onInsert?: (value: string) => boolean;
+}) {
   const disclosure = useDisclosure(false);
 
   return (
@@ -36,22 +41,40 @@ export function SnippetsButton() {
                   {snippet.value}
                 </div>
               </div>
-              <Button
-                size="sm"
-                intent="primary-outline"
-                className="sm:ml-4 flex-shrink-0"
-                onClick={async () => {
-                  await copyToClipboard(snippet.value, {
-                    onSuccess: () =>
-                      toast.success('Snippet copied to clipboard'),
-                    onError: () =>
-                      toast.error('Failed to copy snippet to clipboard'),
-                  });
-                }}
-                title="Copy snippet"
-              >
-                <CopyIcon className="w-5 h-5" />
-              </Button>
+              <div className="flex gap-2 sm:ml-4 flex-shrink-0">
+                {onInsert && (
+                  <Button
+                    size="sm"
+                    intent="primary"
+                    onClick={() => {
+                      if (onInsert(snippet.value)) {
+                        toast.success('Snippet inserted');
+                        disclosure.close();
+                      } else {
+                        toast.message('Click into a template first');
+                      }
+                    }}
+                    title="Insert at cursor"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  intent="primary-outline"
+                  onClick={async () => {
+                    await copyToClipboard(snippet.value, {
+                      onSuccess: () =>
+                        toast.success('Snippet copied to clipboard'),
+                      onError: () =>
+                        toast.error('Failed to copy snippet to clipboard'),
+                    });
+                  }}
+                  title="Copy snippet"
+                >
+                  <CopyIcon className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>

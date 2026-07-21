@@ -29,7 +29,7 @@ export interface CompileHooks<TValue> {
 const MAX_TEMPLATE_DEPTH = 5;
 
 /** A resolved operand or expression. */
-interface Resolved {
+export interface Resolved {
   result?: unknown;
   error?: string;
   /**
@@ -286,6 +286,19 @@ function compileGroup<TValue extends Record<string, any>>(
     }
     return out;
   };
+}
+
+/**
+ * Resolves a single expression against a value, unlike `compileTemplate` which
+ * renders a whole template. `result` is the computed value before stringifying.
+ */
+export function evaluateExpression<TValue extends Record<string, any>>(
+  node: ExpressionNode,
+  parseValue: TValue,
+  hooks: CompileHooks<TValue>
+): Resolved {
+  const operands = node.operands.map(prepareOperand);
+  return resolveExpression(node, operands, parseValue, hooks);
 }
 
 /** The `{tools.*}` post-pass is a whole-output concern, left to the caller. */

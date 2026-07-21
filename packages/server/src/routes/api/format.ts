@@ -9,8 +9,6 @@ import {
   APIError,
   constants,
   FormatterContext,
-  validateTemplate,
-  BUILTIN_FORMATTER_DEFINITIONS,
 } from '@aiostreams/core';
 import { formatApiRateLimiter } from '../../middlewares/ratelimit.js';
 import z from 'zod';
@@ -155,28 +153,10 @@ router.post('/', async (req: Request, res: Response) => {
   }
   const formattedStream = await formatter.format(streamData);
 
-  const definitions = userDataData.formatter?.definitions;
-  const active =
-    userDataData.formatter?.id === 'custom'
-      ? definitions?.custom
-      : (definitions?.overrides?.[userDataData.formatter?.id ?? ''] ??
-        BUILTIN_FORMATTER_DEFINITIONS[userDataData.formatter?.id ?? '']);
-
-  const warnings = [
-    ...validateTemplate(active?.name ?? '').map((d) => ({
-      ...d,
-      field: 'name',
-    })),
-    ...validateTemplate(active?.description ?? '').map((d) => ({
-      ...d,
-      field: 'description',
-    })),
-  ];
-
   res.status(200).json(
     createResponse({
       success: true,
-      data: { ...formattedStream, ...(warnings.length ? { warnings } : {}) },
+      data: formattedStream,
     })
   );
 });

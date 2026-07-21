@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import type { EditorView } from '@codemirror/view';
+import { Code2, Type } from 'lucide-react';
 import * as constants from '../../../../../core/src/utils/constants';
 import { BUILTIN_FORMATTER_DEFINITIONS } from '../../../../../core/src/utils/formatter-definitions';
 import { useUserData } from '@/context/userData';
 import { UserData } from '@aiostreams/core';
 import { SettingsCard } from '../../shared/settings-card';
 import { Select } from '../../ui/select';
+import { FormatterEditor } from './editor';
 import { Textarea } from '../../ui/textarea';
 import { Button } from '../../ui/button';
 import { IconButton } from '../../ui/button';
@@ -15,6 +18,17 @@ import { toast } from 'sonner';
 import { FaFileImport, FaFileExport, FaSave } from 'react-icons/fa';
 import { SnippetsButton } from './snippets-button';
 import { SavedFormattersModal } from './saved-formatters-modal';
+import { TemplateOutline } from './template-outline';
+
+// Client-only UI preference (not synced to userData): a plain-textarea fallback.
+const SIMPLE_EDITOR_KEY = 'aiostreams:formatter-simple-editor';
+function loadSimpleEditorPref(): boolean {
+  try {
+    return localStorage.getItem(SIMPLE_EDITOR_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 const formatterChoices = Object.values(constants.FORMATTER_DETAILS);
 
@@ -80,6 +94,57 @@ export function FormatterSelection() {
   const { userData, setUserData } = useUserData();
   const importModalDisclosure = useDisclosure(false);
   const savedModalDisclosure = useDisclosure(false);
+
+  // views for the outline's go-to and for inserting snippets at the caret
+  const nameViewRef = useRef<EditorView | null>(null);
+  const descViewRef = useRef<EditorView | null>(null);
+  const focusedViewRef = useRef<EditorView | null>(null);
+
+  const [simpleEditor, setSimpleEditor] =
+    useState<boolean>(loadSimpleEditorPref);
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIMPLE_EDITOR_KEY, simpleEditor ? '1' : '0');
+    } catch {
+      // preference is best-effort; ignore storage failures
+    }
+  }, [simpleEditor]);
+
+  // The rich editor and the plain textarea share the same value/onValueChange
+  // contract, so either drops into the same slot.
+  function renderEditor(
+    value: string,
+    onChange: (v: string) => void,
+    placeholder: string,
+    viewRef: React.MutableRefObject<EditorView | null>
+  ) {
+    if (simpleEditor) {
+      return (
+        <Textarea
+          value={value}
+          onValueChange={onChange}
+          placeholder={placeholder}
+        />
+      );
+    }
+    return (
+      <FormatterEditor
+        value={value}
+        onValueChange={onChange}
+        placeholder={placeholder}
+        onViewReady={(view) => (viewRef.current = view)}
+        onFocusView={(view) => (focusedViewRef.current = view)}
+      />
+    );
+  }
+
+  function insertSnippet(value: string): boolean {
+    const view = focusedViewRef.current;
+    if (!view) return false;
+    view.dispatch(view.state.replaceSelection(value));
+    view.focus();
+    return true;
+  }
 
   const currentId = userData.formatter.id;
   const definitions = userData.formatter.definitions;
@@ -289,51 +354,89 @@ export function FormatterSelection() {
 
         {showTemplates && (
           <div className="space-y-4 mt-4">
-            <div className="text-sm text-gray-400">
-              Type <span className="font-mono">{'{debug.jsonf}'}</span> to see
-              all available variables. See the{' '}
-              <a
-                href="https://docs.aiostreams.viren070.me/reference/custom-formatter"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[--brand] hover:text-[--brand]/80 hover:underline"
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-sm text-gray-400">
+                Type <span className="font-mono">{'{debug.jsonf}'}</span> to see
+                all available variables. See the{' '}
+                <a
+                  href="https://docs.aiostreams.viren070.me/reference/custom-formatter"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[--brand] hover:text-[--brand]/80 hover:underline"
+                >
+                  docs
+                </a>{' '}
+                for a full reference.
+              </div>
+              <Tooltip
+                trigger={
+                  <IconButton
+                    rounded
+                    size="sm"
+                    intent="primary-subtle"
+                    className="shrink-0"
+                    icon={
+                      simpleEditor ? (
+                        <Code2 className="w-4 h-4" />
+                      ) : (
+                        <Type className="w-4 h-4" />
+                      )
+                    }
+                    onClick={() => setSimpleEditor((v) => !v)}
+                  />
+                }
               >
-                docs
-              </a>{' '}
-              for a full reference.
+                {simpleEditor
+                  ? 'Switch to the rich editor'
+                  : 'Switch to a plain textarea'}
+              </Tooltip>
             </div>
 
             <div>
               <label className="text-sm font-medium mb-2 block">
                 Name Template
               </label>
-              <Textarea
-                value={nameTemplate}
-                onValueChange={(v) =>
+              {renderEditor(
+                nameTemplate,
+                (v) =>
                   setUserData((prev) =>
                     applyTemplates(prev, v, getTemplates(prev).description)
-                  )
-                }
-                placeholder="Enter a template for the stream name"
-              />
+                  ),
+                'Enter a template for the stream name',
+                nameViewRef
+              )}
+              {!simpleEditor && (
+                <TemplateOutline
+                  template={nameTemplate}
+                  getView={() => nameViewRef.current}
+                />
+              )}
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">
                 Description Template
               </label>
-              <Textarea
-                value={descriptionTemplate}
-                onValueChange={(v) =>
+              {renderEditor(
+                descriptionTemplate,
+                (v) =>
                   setUserData((prev) =>
                     applyTemplates(prev, getTemplates(prev).name, v)
-                  )
-                }
-                placeholder="Enter a template for the stream description"
-              />
+                  ),
+                'Enter a template for the stream description',
+                descViewRef
+              )}
+              {!simpleEditor && (
+                <TemplateOutline
+                  template={descriptionTemplate}
+                  getView={() => descViewRef.current}
+                />
+              )}
             </div>
 
             <div className="flex gap-2 items-center flex-wrap">
-              <SnippetsButton />
+              <SnippetsButton
+                onInsert={simpleEditor ? undefined : insertSnippet}
+              />
               {isCustomised && (
                 <Button intent="white" size="sm" onClick={handleReset}>
                   Reset to built-in
