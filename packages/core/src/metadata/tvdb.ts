@@ -114,7 +114,7 @@ const TVDBSeriesSchema = z.object({
   defaultSeasonType: z.number().optional(),
   isOrderRandomized: z.boolean().optional(),
   lastUpdated: z.string(),
-  averageRuntime: z.number().optional(),
+  averageRuntime: z.number().nullable().optional(),
   episodes: z.unknown().nullable().optional(),
   overview: z.string().optional(),
   year: z.string(),
@@ -490,16 +490,21 @@ class TVDBApi {
   ): Promise<TVDBSeasonEpisode[]> {
     return this.cache.seriesEpisodes.wrap(
       async () => {
-        logger.debug(`Getting episodes for series ${id} season ${seasonNumber}`);
+        logger.debug(
+          `Getting episodes for series ${id} season ${seasonNumber}`
+        );
         const episodes: TVDBSeasonEpisode[] = [];
         // links.next signals more pages (page size 500); daily-show seasons fit one page
         for (let page = 0; page < 10; page++) {
           const response = await this.request<
             z.infer<typeof SeriesEpisodesResponseSchema>
-          >(`/series/${id}/episodes/default?season=${seasonNumber}&page=${page}`, {
-            schema: SeriesEpisodesResponseSchema,
-            timeout: 5000,
-          });
+          >(
+            `/series/${id}/episodes/default?season=${seasonNumber}&page=${page}`,
+            {
+              schema: SeriesEpisodesResponseSchema,
+              timeout: 5000,
+            }
+          );
           if (response.status !== 'success') break;
           for (const ep of response.data.episodes ?? []) {
             if (ep.number === undefined || ep.seasonNumber === undefined) {
