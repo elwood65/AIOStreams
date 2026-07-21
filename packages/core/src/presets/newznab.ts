@@ -26,6 +26,87 @@ class NewznabStreamParser extends BuiltinStreamParser {
   }
 }
 
+const NEWZNAB_INDEXERS: {
+  label: string;
+  value: string;
+  apiKeyUrl?: string;
+}[] = [
+  {
+    label: 'altHUB',
+    value: 'https://api.althub.co.za/api',
+    apiKeyUrl: 'https://althub.co.za/profile',
+  },
+  // AnimeTosho needs no key at all
+  { label: 'AnimeTosho', value: 'https://feed.animetosho.org/api' },
+  {
+    label: 'AnimeTosho (NEW)',
+    value: 'https://feed.animetosho.xyz/api',
+    apiKeyUrl: 'https://animetosho.xyz/profile',
+  },
+  { label: 'ClubNZB', value: 'https://clubnzb.com/api' },
+  { label: 'DOGnzb', value: 'https://api.dognzb.cr/api' },
+  {
+    label: 'DrunkenSlug',
+    value: 'https://drunkenslug.com/api',
+    apiKeyUrl: 'https://drunkenslug.com/profile',
+  },
+  {
+    label: 'Miatrix',
+    value: 'https://www.miatrix.com/api',
+    apiKeyUrl: 'https://www.miatrix.com/profile',
+  },
+  {
+    label: 'NinjaCentral',
+    value: 'https://ninjacentral.co.za/api',
+    apiKeyUrl: 'https://ninjacentral.co.za/profile',
+  },
+  {
+    label: 'Nzb.life',
+    value: 'https://api.nzb.life/api',
+    apiKeyUrl: 'https://www.nzb.life/profile',
+  },
+  {
+    label: 'NZBFinder',
+    value: 'https://nzbfinder.ws/api',
+    apiKeyUrl: 'https://nzbfinder.ws/profile',
+  },
+  {
+    label: 'NZBgeek',
+    value: 'https://api.nzbgeek.info/api',
+    apiKeyUrl: 'https://nzbgeek.info/profile',
+  },
+  {
+    label: 'NzbNoob',
+    value: 'https://nzbnoob.com/api',
+    apiKeyUrl: 'https://nzbnoob.com/profile',
+  },
+  {
+    label: 'NzbPlanet',
+    value: 'https://api.nzbplanet.net/api',
+    apiKeyUrl: 'https://nzbplanet.net/profile',
+  },
+  { label: 'NZBStars', value: 'https://nzbstars.com/api' },
+  {
+    label: 'Treasure Maps (formerly SceneNZBs)',
+    value: 'https://treasure-maps.com/api',
+  },
+  {
+    label: 'Tabula Rasa',
+    value: 'https://www.tabula-rasa.pw/api/v1/api',
+    apiKeyUrl: 'https://www.tabula-rasa.pw/profile',
+  },
+  {
+    label: 'TorBox Search',
+    value: 'https://search-api.torbox.app/newznab/api',
+    apiKeyUrl: 'https://torbox.app/settings?section=account',
+  },
+  {
+    label: 'Usenet Crawler',
+    value: 'https://www.usenet-crawler.com/api',
+    apiKeyUrl: 'https://www.usenet-crawler.com/profile',
+  },
+];
+
 export class NewznabPreset extends BuiltinAddonPreset {
   static override getParser() {
     return NewznabStreamParser;
@@ -51,59 +132,31 @@ export class NewznabPreset extends BuiltinAddonPreset {
         default: 'Newznab',
       },
       {
-        id: 'newznabUrl',
-        name: 'Newznab URL',
-        description: 'Provide the URL to the Newznab endpoint ',
-        type: 'select-with-custom',
-        options: [
-          { label: 'altHUB', value: 'https://api.althub.co.za' },
-          {
-            label: 'AnimeTosho',
-            value: 'https://feed.animetosho.org/',
-          },
-          { label: 'ClubNZB', value: 'https://clubnzb.com/' },
-          { label: 'DOGnzb', value: 'https://api.dognzb.cr/' },
-          { label: 'DrunkenSlug', value: 'https://drunkenslug.com/' },
-          { label: 'Miatrix', value: 'https://www.miatrix.com' },
-          { label: 'NinjaCentral', value: 'https://ninjacentral.co.za/' },
-          { label: 'Nzb.life', value: 'https://api.nzb.life/' },
-          { label: 'NZBFinder', value: 'https://nzbfinder.ws/' },
-          { label: 'NZBgeek', value: 'https://api.nzbgeek.info/' },
-          { label: 'NzbNoob', value: 'https://nzbnoob.com' },
-          { label: 'NzbPlanet', value: 'https://api.nzbplanet.net' },
-          { label: 'NZBStars', value: 'https://nzbstars.com/' },
-          {
-            label: 'Treasure Maps (formerly SceneNZBs)',
-            value: 'https://treasure-maps.com',
-          },
-          {
-            label: 'Tabula Rasa',
-            value: 'https://www.tabula-rasa.pw/api/v1/',
-          },
-          {
-            label: 'TorBox Search',
-            value: 'https://search-api.torbox.app/newznab',
-          },
-          { label: 'Usenet Crawler', value: 'https://www.usenet-crawler.com/' },
-        ],
+        id: 'api',
+        name: 'Newznab Endpoint',
+        description: '',
+        type: 'nab-endpoint',
+        nab: { namespace: 'newznab', preset: 'newznab' },
         required: true,
-      },
-      {
-        id: 'apiKey',
-        name: 'API Key',
-        description:
-          'The password for the Newznab API. This is used to authenticate with the Newznab endpoint.',
-        type: 'password',
-        required: false,
-      },
-      {
-        id: 'apiPath',
-        name: 'API Path',
-        description: 'The path to the Newznab API. Usually /api.',
-        type: 'string',
-        required: false,
-        default: '/api',
-        showInSimpleMode: false,
+        subOptions: [
+          {
+            id: 'url',
+            name: 'Newznab URL',
+            description:
+              'Pick an indexer, or choose `Custom` to enter the full URL of the Newznab API endpoint (including the path, usually `/api`).',
+            type: 'select-with-custom',
+            required: true,
+            options: NEWZNAB_INDEXERS,
+          },
+          {
+            id: 'apiKey',
+            name: 'API Key',
+            description:
+              'The password for the Newznab API. This is used to authenticate with the Newznab endpoint.',
+            type: 'password',
+            required: false,
+          },
+        ],
       },
       {
         id: 'proxyAuth',
@@ -311,7 +364,11 @@ export class NewznabPreset extends BuiltinAddonPreset {
     userData: UserData,
     options: Record<string, any>
   ): Promise<Addon[]> {
-    const usableServices = this.getUsableServices(userData, options.services, options.name);
+    const usableServices = this.getUsableServices(
+      userData,
+      options.services,
+      options.name
+    );
     if (!usableServices || usableServices.length === 0) {
       throw new Error(
         `${this.METADATA.NAME} requires at least one usable service, but none were found. Please enable at least one of the following services: ${this.METADATA.SUPPORTED_SERVICES.join(
@@ -434,9 +491,9 @@ export class NewznabPreset extends BuiltinAddonPreset {
     }
     const config: Record<string, any> = {
       ...this.getBaseConfig(userData, services),
-      url: options.newznabUrl,
-      apiPath: options.apiPath,
-      apiKey: options.apiKey,
+      url: options.api?.url,
+      apiPath: '',
+      apiKey: options.api?.apiKey,
       proxyAuth: options.proxyAuth,
       forceQuerySearch: options.forceQuerySearch ?? false,
       paginate: options.paginate ?? false,

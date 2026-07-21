@@ -6,9 +6,12 @@ import {
   APIError,
   constants,
 } from '@aiostreams/core';
+import { attachNabTestRoute } from './nab-test.js';
 const router: Router = Router();
 
 const logger = createLogger('server');
+
+attachNabTestRoute(router, 'newznab');
 
 interface NewznabManifestParams {
   encodedConfig?: string; // optional

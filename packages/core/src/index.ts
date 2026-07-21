@@ -37,6 +37,8 @@ export {
   LibraryAddon,
   preWarmLibraryCaches,
   refreshLibraryCacheForService,
+  testNabEndpoint,
+  type NabNamespaceId,
 } from './builtins/index.js';
 export { PresetManager } from './presets/index.js';
 export {

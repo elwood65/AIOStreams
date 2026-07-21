@@ -22,7 +22,10 @@ import {
   FaServer,
   FaTrashCan,
 } from 'react-icons/fa6';
+import { BiTestTube } from 'react-icons/bi';
 import { Modal } from '../ui/modal';
+import { Tooltip } from '../ui/tooltip';
+import { toast } from 'sonner';
 // this component, accepts an option and returns a component that renders the option.
 // string - TextInput
 // number - NumberInput
@@ -178,6 +181,64 @@ function SubsectionTrigger({
         title={`Configure ${name}`}
       />
     </div>
+  );
+}
+
+interface SelectWithCustomProps {
+  label: string;
+  value: any;
+  onChange: (value: string | undefined) => void;
+  options?: { label: string; value: any }[];
+  required?: boolean;
+  disabled?: boolean;
+}
+
+/** A dropdown of known values with a `Custom` escape hatch for free text. */
+function SelectWithCustom({
+  label,
+  value,
+  onChange,
+  options,
+  required,
+  disabled,
+}: SelectWithCustomProps) {
+  const onValueChange = (val: string) => {
+    onChange(val === 'undefined' ? undefined : val);
+  };
+
+  // The select sits on 'Custom' whenever the value isn't one of the presets.
+  const isCustom = !options?.some((opt) => opt.value === value);
+
+  const handleSelectChange = (val: string) => {
+    // Selecting "Custom" clears the value to allow for new input.
+    onValueChange(val === 'Custom' ? '' : val);
+  };
+
+  const optionsWithCustom = [
+    ...(options?.map((opt) => ({ label: opt.label, value: opt.value })) ?? []),
+    { label: 'Custom', value: 'Custom' },
+  ];
+
+  return (
+    <>
+      <Select
+        label={label}
+        value={isCustom ? 'Custom' : value}
+        onValueChange={handleSelectChange}
+        options={optionsWithCustom}
+        required={required}
+        disabled={disabled}
+      />
+      {isCustom && (
+        <TextInput
+          label="Custom"
+          value={value ?? ''}
+          onValueChange={onValueChange}
+          required={required}
+          disabled={disabled}
+        />
+      )}
+    </>
   );
 }
 
@@ -365,68 +426,16 @@ const TemplateOption: React.FC<TemplateOptionProps> = ({
         </div>
       );
     case 'select-with-custom': {
-      const isExistingOption = (val: string) => {
-        return options?.some((opt) => opt.value === val);
-      };
-
-      const onValueChange = (val: string) => {
-        if (val === 'undefined') {
-          onChange(undefined);
-        } else {
-          onChange(val);
-        }
-      };
-
-      const effectiveValue = forcedValue ?? value ?? defaultValue;
-      const isCustom = !isExistingOption(effectiveValue);
-
-      // When a user selects from the dropdown
-      const handleSelectChange = (val: string) => {
-        if (val === 'Custom') {
-          // When "Custom" is selected, we clear the value to allow for new input.
-          onValueChange('');
-        } else {
-          onValueChange(val);
-        }
-      };
-
-      // When a user types in the custom input
-      const handleCustomInputChange = (val: string) => {
-        onValueChange(val);
-      };
-
-      const optionsWithCustom = [
-        ...(options?.map((opt) => ({ label: opt.label, value: opt.value })) ??
-          []),
-        { label: 'Custom', value: 'Custom' },
-      ];
-
-      // The select's value is 'Custom' if the effectiveValue is not an existing option.
-      const selectValue = isCustom ? 'Custom' : effectiveValue;
-
-      // The custom text input should be shown if the mode is 'Custom'.
-      const showCustomInput = selectValue === 'Custom';
-
       return (
         <div>
-          <Select
+          <SelectWithCustom
             label={name}
-            value={selectValue}
-            onValueChange={handleSelectChange}
-            options={optionsWithCustom}
+            value={forcedValue ?? value ?? defaultValue}
+            onChange={onChange}
+            options={options}
             required={required}
             disabled={isDisabled}
           />
-          {showCustomInput && (
-            <TextInput
-              label="Custom"
-              // The text input shows the custom value.
-              value={effectiveValue ?? ''}
-              onValueChange={handleCustomInputChange}
-              required={required}
-              disabled={isDisabled}
-            />
-          )}
           {description && (
             <div className="text-xs text-[--muted] mt-1">
               <MarkdownLite>{description}</MarkdownLite>
@@ -654,10 +663,228 @@ const TemplateOption: React.FC<TemplateOptionProps> = ({
         />
       );
     }
+    case 'nab-endpoint': {
+      return (
+        <NabEndpointInput
+          option={option}
+          value={forcedValue ?? value ?? defaultValue}
+          onChange={onChange}
+          disabled={isDisabled}
+        />
+      );
+    }
     default:
       return null;
   }
 };
+
+interface NabEndpointValue {
+  url?: string;
+  apiKey?: string;
+}
+
+interface NabTestResult {
+  ok: boolean;
+  stage?: 'caps' | 'auth' | 'search';
+  server?: { title?: string };
+  limits?: {
+    default?: number | string | boolean;
+    max?: number | string | boolean;
+  };
+  searchModes?: string[];
+  idSearchParams?: string[];
+  resultCount?: number;
+  error?: { code?: number; message: string };
+}
+
+const NAB_TEST_STAGE_HINTS: Record<string, string> = {
+  caps: 'Could not reach a Newznab API here. Check the URL, including its path.',
+  auth: 'The endpoint is reachable, but the API key was rejected.',
+  search: 'The endpoint is reachable, but the search request failed.',
+};
+
+export interface NabEndpointInputProps {
+  option: Option;
+  value: NabEndpointValue | undefined;
+  onChange: (value: NabEndpointValue) => void;
+  disabled?: boolean;
+}
+
+/**
+ * The url + API key pair for a newznab/torznab indexer, with a button that
+ * probes the endpoint.
+ */
+export function NabEndpointInput({
+  option,
+  value,
+  onChange,
+  disabled,
+}: NabEndpointInputProps) {
+  const subOptions = (option.subOptions ?? []) as Option[];
+  const urlOption = subOptions.find((sub) => sub.id === 'url');
+  const apiKeyOption = subOptions.find((sub) => sub.id === 'apiKey');
+  const current = value ?? {};
+
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<NabTestResult | null>(null);
+
+  const update = (patch: NabEndpointValue) => {
+    // any edit invalidates the previous verdict
+    setResult(null);
+    onChange({ ...current, ...patch });
+  };
+
+  // only point at a key page for indexers we have a confirmed link for
+  const apiKeyUrl = urlOption?.options?.find(
+    (entry) => entry.value === current.url
+  )?.apiKeyUrl;
+  const apiKeyDescription = [
+    apiKeyOption?.description,
+    apiKeyUrl && `[Find your API key](${apiKeyUrl})`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const runTest = async () => {
+    setTesting(true);
+    setResult(null);
+    try {
+      const response = await fetch(
+        `/builtins/${option.nab?.namespace ?? 'newznab'}/test`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: current.url,
+            apiKey: current.apiKey,
+            preset: option.nab?.preset,
+          }),
+        }
+      );
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(
+          json.detail || json.error?.message || 'Could not run the test'
+        );
+      }
+      setResult(json.data as NabTestResult);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not run the test'
+      );
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-end gap-2">
+        <div className="flex-1 min-w-0 space-y-2">
+          {urlOption?.options?.length ? (
+            <SelectWithCustom
+              label={urlOption.name}
+              value={current.url}
+              onChange={(url) => update({ url })}
+              options={urlOption.options}
+              required={urlOption.required}
+              disabled={disabled}
+            />
+          ) : (
+            <TextInput
+              label={urlOption?.name ?? 'URL'}
+              value={current.url ?? ''}
+              onValueChange={(url: string) => update({ url })}
+              type="url"
+              required={urlOption?.required}
+              disabled={disabled}
+            />
+          )}
+        </div>
+        <Tooltip
+          trigger={
+            <IconButton
+              intent="gray-subtle"
+              icon={<BiTestTube />}
+              onClick={runTest}
+              loading={testing}
+              disabled={disabled || testing}
+              aria-label="Test endpoint"
+              className="shrink-0"
+            />
+          }
+        >
+          Test connection
+        </Tooltip>
+      </div>
+
+      {urlOption?.description && (
+        <div className="text-xs text-[--muted]">
+          <MarkdownLite>{urlOption.description}</MarkdownLite>
+        </div>
+      )}
+
+      {apiKeyOption && (
+        <div>
+          <PasswordInput
+            label={apiKeyOption.name}
+            value={current.apiKey ?? ''}
+            onValueChange={(apiKey: string) => update({ apiKey })}
+            required={apiKeyOption.required}
+            disabled={disabled}
+            autoComplete="new-password"
+          />
+          {apiKeyDescription && (
+            <div className="text-xs text-[--muted] mt-1">
+              <MarkdownLite>{apiKeyDescription}</MarkdownLite>
+            </div>
+          )}
+        </div>
+      )}
+
+      {result && <NabTestSummary result={result} />}
+    </div>
+  );
+}
+
+function NabTestSummary({ result }: { result: NabTestResult }) {
+  if (!result.ok) {
+    const hint = result.stage ? NAB_TEST_STAGE_HINTS[result.stage] : undefined;
+    return (
+      <Alert
+        intent="alert-basic"
+        title="Test failed"
+        description={
+          <span>
+            {hint ? `${hint} ` : ''}
+            {result.error?.message}
+            {result.error?.code !== undefined && ` (${result.error.code})`}
+          </span>
+        }
+      />
+    );
+  }
+
+  const supportsIdSearch = !!result.idSearchParams?.length;
+
+  const details = [
+    supportsIdSearch
+      ? `ID search: ${result.idSearchParams!.join(', ')}`
+      : 'No ID search, results are matched by title only',
+    result.resultCount !== undefined && `${result.resultCount} results`,
+    result.limits?.max !== undefined && `max ${result.limits.max} per request`,
+    result.searchModes?.length && `supports ${result.searchModes.join(', ')}`,
+  ].filter(Boolean);
+
+  return (
+    <Alert
+      intent={'success-basic'}
+      title={`Connected to ${result.server?.title || 'the indexer'}`}
+      description={details.join(' · ')}
+    />
+  );
+}
 
 // Default empty server template
 const createEmptyServer = (): NNTPServers[number] => ({

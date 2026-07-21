@@ -79,23 +79,36 @@ export class NZBHydraPreset extends NewznabPreset {
           ]
         : []),
       {
-        id: 'nzbhydraUrl',
-        name: 'NZBHydra URL',
-        description: 'Provide the URL to the NZBHydra endpoint ',
-        type: 'url',
+        id: 'api',
+        name: 'NZBHydra Endpoint',
+        description: '',
+        type: 'nab-endpoint',
+        nab: { namespace: 'newznab', preset: 'nzbhydra' },
         required:
           !appConfig.builtins.nzbhydra.url ||
           !appConfig.builtins.nzbhydra.apiKey,
-      },
-      {
-        id: 'nzbhydraApiKey',
-        name: 'API Key',
-        description:
-          'The password for the NZBHydra API. This is used to authenticate with the NZBHydra endpoint.',
-        type: 'password',
-        required:
-          !appConfig.builtins.nzbhydra.url ||
-          !appConfig.builtins.nzbhydra.apiKey,
+        subOptions: [
+          {
+            id: 'url',
+            name: 'NZBHydra URL',
+            description:
+              'The base URL of your NZBHydra instance, e.g. `http://localhost:5076`.',
+            type: 'url',
+            required:
+              !appConfig.builtins.nzbhydra.url ||
+              !appConfig.builtins.nzbhydra.apiKey,
+          },
+          {
+            id: 'apiKey',
+            name: 'API Key',
+            description:
+              'The password for the NZBHydra API. This is used to authenticate with the NZBHydra endpoint.',
+            type: 'password',
+            required:
+              !appConfig.builtins.nzbhydra.url ||
+              !appConfig.builtins.nzbhydra.apiKey,
+          },
+        ],
       },
       {
         id: 'searchMode',
@@ -170,9 +183,9 @@ export class NZBHydraPreset extends NewznabPreset {
     let nzbhydraUrl = undefined;
     let nzbhydraApiKey = undefined;
 
-    if (options.nzbhydraUrl || options.nzbhydraApiKey) {
-      nzbhydraUrl = options.nzbhydraUrl;
-      nzbhydraApiKey = options.nzbhydraApiKey;
+    if (options.api?.url || options.api?.apiKey) {
+      nzbhydraUrl = options.api.url;
+      nzbhydraApiKey = options.api.apiKey;
     } else {
       nzbhydraUrl = appConfig.builtins.nzbhydra.url;
       nzbhydraApiKey = appConfig.builtins.nzbhydra.apiKey;
@@ -185,7 +198,8 @@ export class NZBHydraPreset extends NewznabPreset {
     const config = {
       ...this.getBaseConfig(userData, services),
       url: nzbhydraUrl,
-      apiPath: options.apiPath,
+      // always a base url, since NZBHydra only ever serves its api at /api
+      apiPath: '/api',
       apiKey: nzbhydraApiKey,
       forceQuerySearch: options.forceQuerySearch ?? true,
       forceInitialLimit: options.initialLimit ?? 250,

@@ -100,9 +100,15 @@ export class NewznabAddon extends BaseNabAddon<NewznabAddonConfig, NewznabApi> {
     const extraParams: Record<string, string | number | boolean> = {};
 
     const upstreamBase = this.userData.url.trim().replace(/\/+$/, '');
-    const upstreamApiPath = this.userData.apiPath?.startsWith('/')
-      ? this.userData.apiPath
-      : `/${this.userData.apiPath || 'api'}`;
+    // an absent apiPath means the legacy '/api' default; an empty one means the
+    // url is already a complete endpoint
+    const rawApiPath = this.userData.apiPath;
+    const upstreamApiPath =
+      rawApiPath === undefined
+        ? '/api'
+        : rawApiPath && !rawApiPath.startsWith('/')
+          ? `/${rawApiPath}`
+          : rawApiPath;
     const target = upstreamBase
       ? `${upstreamBase}${upstreamApiPath}`
       : this.userData.url;

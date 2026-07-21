@@ -17,28 +17,30 @@ export class TorznabPreset extends BuiltinAddonPreset {
         default: 'Torznab',
       },
       {
-        id: 'torznabUrl',
-        name: 'Torznab URL',
-        description: 'Provide the URL to the Torznab endpoint ',
-        type: 'url',
+        id: 'api',
+        name: 'Torznab Endpoint',
+        description: '',
+        type: 'nab-endpoint',
+        nab: { namespace: 'torznab', preset: 'torznab' },
         required: true,
-      },
-      {
-        id: 'apiKey',
-        name: 'API Key',
-        description:
-          'The password for the Torznab API. This is used to authenticate with the Torznab endpoint.',
-        type: 'password',
-        required: false,
-      },
-      {
-        id: 'apiPath',
-        name: 'API Path',
-        description: 'The path to the Torznab API. Usually /api.',
-        type: 'string',
-        required: false,
-        showInSimpleMode: false,
-        default: '/api',
+        subOptions: [
+          {
+            id: 'url',
+            name: 'Torznab URL',
+            description:
+              'The full URL of the Torznab API endpoint, including the path (usually `/api`).',
+            type: 'url',
+            required: true,
+          },
+          {
+            id: 'apiKey',
+            name: 'API Key',
+            description:
+              'The password for the Torznab API. This is used to authenticate with the Torznab endpoint.',
+            type: 'password',
+            required: false,
+          },
+        ],
       },
       {
         id: 'timeout',
@@ -261,9 +263,10 @@ export class TorznabPreset extends BuiltinAddonPreset {
   ) {
     const config = {
       ...this.getBaseConfig(userData, services),
-      url: options.torznabUrl,
-      apiPath: options.apiPath,
-      apiKey: options.apiKey,
+      url: options.api?.url,
+      // the url already carries the api path
+      apiPath: '',
+      apiKey: options.api?.apiKey,
       forceQuerySearch: options.forceQuerySearch ?? false,
       forceInitialLimit: options.initialLimit,
       paginate: options.paginate ?? false,

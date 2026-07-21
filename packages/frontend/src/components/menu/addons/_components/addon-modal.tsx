@@ -50,6 +50,8 @@ export function AddonModal({
     const val = values.options?.[opt.id];
     // For booleans, false is valid; for others, check for empty string/null/undefined
     if (opt.type === 'boolean') return typeof val === 'boolean';
+    // object-valued field, so an empty url would otherwise pass as truthy
+    if (opt.type === 'nab-endpoint') return !!val?.url;
     return val !== undefined && val !== null && val !== '';
   });
 

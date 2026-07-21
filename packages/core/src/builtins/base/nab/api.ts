@@ -248,6 +248,52 @@ type RawSearchResponse = {
   results: (TorznabSearchResultItem | NewznabSearchResultItem)[];
 };
 
+// --- Connection test ---
+const NAB_TEST_TIMEOUT = 15000;
+
+/** Newznab reserves 100-104 for credential/account rejections. */
+const NAB_AUTH_ERROR_CODES = new Set([100, 101, 102, 103, 104]);
+
+export type NabTestStage = 'caps' | 'auth' | 'search';
+
+/** The id params the addon looks for before falling back to a title search. */
+const NAB_ID_SEARCH_PARAMS = ['imdbid', 'tvdbid', 'tmdbid'];
+
+export type NabTestResult = {
+  ok: boolean;
+  stage?: NabTestStage;
+  server?: Capabilities['server'];
+  limits?: Capabilities['limits'];
+  searchModes?: string[];
+  idSearchParams?: string[];
+  resultCount?: number;
+  error?: { code?: number; message: string };
+};
+
+const resolveTestStage = (
+  error: unknown,
+  fallback: NabTestStage
+): NabTestStage =>
+  error instanceof NabApiError && NAB_AUTH_ERROR_CODES.has(error.code)
+    ? 'auth'
+    : fallback;
+
+const describeTestError = (
+  error: unknown
+): { code?: number; message: string } => {
+  if (error instanceof NabApiError) {
+    return { code: error.code, message: error.description };
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    message.startsWith('Failed to parse XML response') ||
+    message.startsWith('Response validation failed')
+  ) {
+    return { message: 'The response was not a Newznab/Torznab API response' };
+  }
+  return { message };
+};
+
 // --- API Client Class ---
 export class BaseNabApi<N extends 'torznab' | 'newznab'> {
   private readonly capabilitiesCache: Cache<string, Capabilities>;
@@ -280,6 +326,7 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
           this.params[key] = value;
         }
       });
+      this.baseUrl = apiPathUrl.origin;
       this.apiPath = apiPathUrl.pathname;
     }
     this.capabilitiesCache = Cache.getInstance(`${namespace}:api:caps`);
@@ -398,6 +445,69 @@ export class BaseNabApi<N extends 'torznab' | 'newznab'> {
       isEmptyResult: (result) => result.results.length === 0,
       logger: this.logger,
     });
+  }
+
+  /**
+   * Probe the endpoint.
+   *
+   * `caps` proves the url and api path; the bare `search` proves the api key,
+   * since plenty of indexers serve caps without authenticating.
+   */
+  public async testConnection(): Promise<NabTestResult> {
+    let capabilities: Capabilities;
+    try {
+      capabilities = await this._request(
+        'caps',
+        CapabilitiesSchema,
+        undefined,
+        NAB_TEST_TIMEOUT
+      );
+    } catch (error) {
+      return {
+        ok: false,
+        stage: resolveTestStage(error, 'caps'),
+        error: describeTestError(error),
+      };
+    }
+
+    const available = Object.entries(capabilities.searching).filter(
+      ([, fn]) => fn?.available === true
+    );
+    const details = {
+      server: capabilities.server,
+      limits: capabilities.limits,
+      searchModes: available.map(([name]) => name),
+      idSearchParams: [
+        ...new Set(
+          available.flatMap(([, fn]) =>
+            (fn.supportedParams ?? []).filter((param) =>
+              NAB_ID_SEARCH_PARAMS.includes(param)
+            )
+          )
+        ),
+      ],
+    };
+
+    try {
+      const response = await this._request(
+        'search',
+        this.SearchResultSchema,
+        { limit: 1 },
+        NAB_TEST_TIMEOUT
+      );
+      return {
+        ok: true,
+        ...details,
+        resultCount: response.total ?? response.results.length,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        stage: resolveTestStage(error, 'search'),
+        ...details,
+        error: describeTestError(error),
+      };
+    }
   }
 
   private removeTrailingSlash = (path: string) =>

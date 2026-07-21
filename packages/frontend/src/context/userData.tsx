@@ -274,6 +274,49 @@ export function applyMigrations(config: any): UserData {
     });
   }
 
+  // migrate nab url/apiKey/apiPath options into a single `api` object holding
+  // the complete endpoint
+  if (config.presets && Array.isArray(config.presets)) {
+    // [urlOption, apiKeyOption, urlIsBaseOnly]
+    const nabOptionKeys: Record<string, [string, string, boolean?]> = {
+      newznab: ['newznabUrl', 'apiKey'],
+      torznab: ['torznabUrl', 'apiKey'],
+      nzbhydra: ['nzbhydraUrl', 'nzbhydraApiKey', true],
+    };
+    config.presets = config.presets.map((preset: any) => {
+      const keys = nabOptionKeys[preset.type];
+      if (!keys || !preset.options || preset.options.api !== undefined) {
+        return preset;
+      }
+      const [urlKey, apiKeyKey, urlIsBaseOnly] = keys;
+      const {
+        [urlKey]: url,
+        [apiKeyKey]: apiKey,
+        apiPath,
+        ...rest
+      } = preset.options;
+      if (url === undefined && apiKey === undefined && apiPath === undefined) {
+        return preset;
+      }
+      const api: { url?: string; apiKey?: string } = {};
+      // a preconfigured NZBHydra stores no url, and must not gain a bare '/api'
+      if (typeof url === 'string' && url.trim()) {
+        const base = url.trim().replace(/\/+$/, '');
+        if (urlIsBaseOnly) {
+          api.url = base;
+        } else {
+          const path = apiPath === undefined ? '/api' : String(apiPath).trim();
+          const normalised = path.replace(/^\/+|\/+$/g, '');
+          api.url = base + (normalised ? `/${normalised}` : '');
+        }
+      }
+      if (apiKey !== undefined) {
+        api.apiKey = apiKey;
+      }
+      return { ...preset, options: { ...rest, api } };
+    });
+  }
+
   if (config.formatter && config.formatter.definition) {
     config.formatter.definitions = {
       ...(config.formatter.definitions ?? {}),

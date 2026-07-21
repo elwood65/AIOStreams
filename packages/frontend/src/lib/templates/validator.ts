@@ -16,6 +16,7 @@ const VALID_INPUT_TYPES = new Set([
   'oauth',
   'subsection',
   'custom-nntp-servers',
+  'nab-endpoint',
 ]);
 
 const VALID_SOCIAL_IDS = new Set([
@@ -40,11 +41,13 @@ const VALID_ALERT_INTENTS = new Set([
   'alert-basic',
 ]);
 
+// container types are referenced via their sub-options, not their own id
 const UNREFERENCED_EXEMPT_TYPES = new Set([
   'alert',
   'socials',
   'subsection',
   'custom-nntp-servers',
+  'nab-endpoint',
 ]);
 
 /**
@@ -460,10 +463,11 @@ export function validateTemplate(
           }
           break;
         }
-        case 'subsection': {
+        case 'subsection':
+        case 'nab-endpoint': {
           if (!Array.isArray(input.subOptions)) {
             errors.push(
-              `${basePath}.subOptions: "subsection" type requires a subOptions array`
+              `${basePath}.subOptions: "${input.type}" type requires a subOptions array`
             );
           } else {
             validateInputs(
@@ -551,7 +555,10 @@ export function validateTemplate(
           `metadata.inputs: "${input.id}" (${input.type}) is declared but never referenced in config`
         );
       }
-      if (input.type === 'subsection' && Array.isArray(input.subOptions)) {
+      if (
+        (input.type === 'subsection' || input.type === 'nab-endpoint') &&
+        Array.isArray(input.subOptions)
+      ) {
         (input.subOptions as any[]).forEach((sub: any) => {
           if (
             sub.id &&

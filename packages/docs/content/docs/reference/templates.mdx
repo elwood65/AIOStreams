@@ -101,6 +101,38 @@ Inputs are defined in `metadata.inputs`. They appear in a dialog before the temp
 | `alert`              | Styled banner   | Displays info/warning/error. See Alert section       |
 | `socials`            | Icon row        | Renders social media icon links. See Socials section |
 | `subsection`         | Button → modal  | Groups sub-inputs. See Subsections section           |
+| `nab-endpoint`       | URL + key + test | Newznab/Torznab endpoint pair. See Nab endpoints section |
+
+#### Nab endpoints
+
+A `nab-endpoint` renders the URL and API key of a Newznab/Torznab indexer together, with a button that probes the endpoint and reports whether it works. Like a `subsection` it holds its value as an object keyed by `subOptions`, accessed with dot notation.
+
+It expects exactly two `subOptions`: `url` (the **full** endpoint including its path, usually ending in `/api`) and `apiKey`. Supply `options` on the `url` sub-option to offer a dropdown of known indexers; omit it for a plain text input.
+
+The `nab` field tells the test button what to probe — `namespace` picks the protocol, and `preset` lets the server fall back to a preconfigured instance when the URL is left blank.
+
+```json
+{
+  "id": "api",
+  "name": "Newznab Endpoint",
+  "type": "nab-endpoint",
+  "nab": { "namespace": "newznab", "preset": "newznab" },
+  "subOptions": [
+    {
+      "id": "url",
+      "name": "Newznab URL",
+      "type": "select-with-custom",
+      "required": true,
+      "options": [{ "label": "NZBgeek", "value": "https://api.nzbgeek.info/api" }]
+    },
+    { "id": "apiKey", "name": "API Key", "type": "password" }
+  ]
+}
+```
+
+Use in config as `{{inputs.api.url}}` and `{{inputs.api.apiKey}}`.
+
+The test runs on the server rather than in the browser: most indexers send no CORS headers, and self-hosted ones are often plain `http`, so a direct fetch from the page would fail for reasons unrelated to the config being correct.
 
 #### Subsections
 

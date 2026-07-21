@@ -55,6 +55,8 @@ export default defineConfig({
     port: devServerPort,
     proxy: {
       '/api': backendBaseUrl,
+      // the nab endpoint test button posts to /builtins/<namespace>/test
+      '/builtins': backendBaseUrl,
     },
   },
   tools: {

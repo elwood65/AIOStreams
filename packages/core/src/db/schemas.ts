@@ -297,7 +297,14 @@ const OptionDefinition = z.looseObject({
     'oauth',
     'subsection',
     'custom-nntp-servers',
+    'nab-endpoint',
   ]),
+  nab: z
+    .object({
+      namespace: z.enum(['newznab', 'torznab']),
+      preset: z.string().min(1),
+    })
+    .optional(),
   oauth: z
     .object({
       authorisationUrl: z.string().url(),
@@ -315,6 +322,8 @@ const OptionDefinition = z.looseObject({
       z.object({
         value: z.any(),
         label: z.string().min(1),
+        // for 'nab-endpoint': where this indexer shows the user their api key
+        apiKeyUrl: z.string().url().optional(),
       })
     )
     .optional(),

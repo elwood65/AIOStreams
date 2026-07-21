@@ -2,7 +2,13 @@
 import { createResponse } from '../utils/responses.js';
 import { constants, appConfig } from '@aiostreams/core';
 
-const WHIELIST = ['/easynews/nzb', '/library/refresh'];
+// browser-reachable builtin paths; each gates itself instead
+const WHIELIST = [
+  '/easynews/nzb',
+  '/library/refresh',
+  '/newznab/test',
+  '/torznab/test',
+];
 
 export const internalMiddleware = (
   req: Request,
