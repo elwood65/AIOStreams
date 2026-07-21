@@ -960,6 +960,7 @@ export const DEFAULT_SMART_DETECT_ATTRIBUTES: SmartDetectAttribute[] = [
   'edition',
   'network',
   'remastered',
+  'releaseGroup',
 ];
 
 export const AUTO_PLAY_ATTRIBUTES = [
