@@ -944,6 +944,8 @@ export const SMART_DETECT_ATTRIBUTES = [
   'audioTags',
   'audioChannels',
   'languages',
+  'repack',
+  'proper',
 ] as const;
 
 export type SmartDetectAttribute = (typeof SMART_DETECT_ATTRIBUTES)[number];
