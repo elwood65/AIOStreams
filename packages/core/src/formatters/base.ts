@@ -137,11 +137,32 @@ export interface ParseValue {
   };
   metadata?: {
     queryType: string | null;
+    type: string | null;
+    isAnime: boolean;
     title: string | null;
-    runtime: number | null;
-    genres: string[] | null;
+    titles: string[] | null;
     year: number | null;
+    yearEnd: number | null;
+    runtime: number | null;
     episodeRuntime: number | null;
+    genres: string[] | null;
+    originalLanguage: string | null;
+    country: string | null;
+    season: number | null;
+    episode: number | null;
+    absoluteEpisode: number | null;
+    relativeAbsoluteEpisode: number | null;
+    episodeTitle: string | null;
+    episodeTitles: string[] | null;
+    latestSeason: number | null;
+    daysSinceRelease: number | null;
+    daysSinceFirstAired: number | null;
+    daysSinceLastAired: number | null;
+    hasNextEpisode: boolean;
+    daysUntilNextEpisode: number | null;
+    anilistId: number | null;
+    malId: number | null;
+    hasSeaDex: boolean;
   };
   service?: {
     id: string | null;
@@ -183,6 +204,8 @@ export interface FormatterContext {
   absoluteEpisode?: number;
   relativeAbsoluteEpisode?: number;
   originalLanguage?: string;
+  country?: string;
+  episodeTitles?: string[];
   daysSinceRelease?: number;
   hasNextEpisode?: boolean;
   daysUntilNextEpisode?: number;
@@ -624,11 +647,34 @@ export abstract class BaseFormatter {
       },
       metadata: {
         queryType: this.formatterContext.queryType || null,
+        type: this.formatterContext.type || null,
+        isAnime: this.formatterContext.isAnime ?? false,
         title: this.formatterContext.title || null,
+        titles: this.formatterContext.titles || null,
+        year: this.formatterContext.year || null,
+        yearEnd: this.formatterContext.yearEnd || null,
         runtime: this.formatterContext.runtime || null,
         episodeRuntime: this.formatterContext.episodeRuntime || null,
         genres: this.formatterContext.genres || null,
-        year: this.formatterContext.year || null,
+        originalLanguage: this.formatterContext.originalLanguage || null,
+        country: this.formatterContext.country || null,
+        // ?? rather than ||: season 0 (specials) and a 0-day age are real values
+        season: this.formatterContext.season ?? null,
+        episode: this.formatterContext.episode ?? null,
+        absoluteEpisode: this.formatterContext.absoluteEpisode ?? null,
+        relativeAbsoluteEpisode:
+          this.formatterContext.relativeAbsoluteEpisode ?? null,
+        episodeTitle: this.formatterContext.episodeTitles?.[0] || null,
+        episodeTitles: this.formatterContext.episodeTitles || null,
+        latestSeason: this.formatterContext.latestSeason ?? null,
+        daysSinceRelease: this.formatterContext.daysSinceRelease ?? null,
+        daysSinceFirstAired: this.formatterContext.daysSinceFirstAired ?? null,
+        daysSinceLastAired: this.formatterContext.daysSinceLastAired ?? null,
+        hasNextEpisode: this.formatterContext.hasNextEpisode ?? false,
+        daysUntilNextEpisode: this.formatterContext.daysUntilNextEpisode ?? null,
+        anilistId: this.formatterContext.anilistId ?? null,
+        malId: this.formatterContext.malId ?? null,
+        hasSeaDex: this.formatterContext.hasSeaDex ?? false,
       },
       addon: {
         name: stream.addon?.name || null,

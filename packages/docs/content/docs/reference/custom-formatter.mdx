@@ -197,14 +197,37 @@ Modifiers are chained with `::`:
 
 ### Metadata
 
-| Variable                    | Type     | Description                                                                    |
-| --------------------------- | -------- | ------------------------------------------------------------------------------ |
-| `{metadata.queryType}`      | string   | Media type being queried (`movie`, `series`, `anime.series`, or `anime.movie`) |
-| `{metadata.title}`          | string   | Title of the media being queried                                               |
-| `{metadata.runtime}`        | number   | Movie runtime in minutes                                                       |
-| `{metadata.episodeRuntime}` | number   | Episode runtime in minutes                                                     |
-| `{metadata.genres}`         | string[] | List of genres                                                                 |
-| `{metadata.year}`           | number   | Release year                                                                   |
+These describe the item that was requested, not the release, so they are identical for every stream in the response.
+
+| Variable                            | Type     | Description                                                                     |
+| ----------------------------------- | -------- | ------------------------------------------------------------------------------- |
+| `{metadata.queryType}`              | string   | Media type being queried (`movie`, `series`, `anime.series`, or `anime.movie`)  |
+| `{metadata.type}`                   | string   | Stremio type being queried (`movie` or `series`)                                |
+| `{metadata.isAnime}`                | boolean  | Whether the requested item is anime                                             |
+| `{metadata.title}`                  | string   | Title of the media being queried                                                |
+| `{metadata.titles}`                 | string[] | All known titles, across sources and languages                                  |
+| `{metadata.year}`                   | number   | Release year                                                                    |
+| `{metadata.yearEnd}`                | number   | Year the series ended                                                           |
+| `{metadata.runtime}`                | number   | Movie runtime in minutes                                                        |
+| `{metadata.episodeRuntime}`         | number   | Episode runtime in minutes                                                      |
+| `{metadata.genres}`                 | string[] | List of genres                                                                  |
+| `{metadata.originalLanguage}`       | string   | Language the item was originally produced in (e.g. `Japanese`)                  |
+| `{metadata.country}`                | string   | Country of origin (e.g. `GB`), used to tell same-name series apart              |
+| `{metadata.season}`                 | number   | Requested season number                                                         |
+| `{metadata.episode}`                | number   | Requested episode number                                                        |
+| `{metadata.absoluteEpisode}`        | number   | Requested episode as an absolute number across all seasons                      |
+| `{metadata.relativeAbsoluteEpisode}`| number   | Absolute episode number within the current AniDB entry (for split entries)      |
+| `{metadata.episodeTitle}`           | string   | Title of the requested episode                                                  |
+| `{metadata.episodeTitles}`          | string[] | All known titles of the requested episode, across sources and languages         |
+| `{metadata.latestSeason}`           | number   | Highest season number the series has                                            |
+| `{metadata.daysSinceRelease}`       | number   | Days since the movie or requested episode was released                          |
+| `{metadata.daysSinceFirstAired}`    | number   | Days since the series first aired                                               |
+| `{metadata.daysSinceLastAired}`     | number   | Days since the most recent episode aired                                        |
+| `{metadata.hasNextEpisode}`         | boolean  | Whether a further episode is scheduled                                          |
+| `{metadata.daysUntilNextEpisode}`   | number   | Days until the next episode airs                                                |
+| `{metadata.anilistId}`              | number   | AniList ID (anime only)                                                         |
+| `{metadata.malId}`                  | number   | MyAnimeList ID (anime only)                                                     |
+| `{metadata.hasSeaDex}`              | boolean  | Whether the requested item has a SeaDex entry at all                            |
 
 ### Debug
 

@@ -679,6 +679,8 @@ export class StreamContext {
       originalLanguage: iso6391ToLanguage(
         this._metadata?.originalLanguage || ''
       ),
+      country: this._metadata?.country,
+      episodeTitles: this._metadata?.episodeTitles?.map((t) => t.title),
       daysSinceRelease: this.computeAgeInDays(),
       hasNextEpisode: !!this._metadata?.nextAirDate,
       daysUntilNextEpisode: this.computeDaysUntilNextEpisode(),
