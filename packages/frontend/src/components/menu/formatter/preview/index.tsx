@@ -129,6 +129,12 @@ export function FormatterPreview() {
       content: <SourceTab input={input} patch={patch} />,
     },
     {
+      value: 'stream',
+      label: 'Stream',
+      icon: <Waves className="w-4 h-4" />,
+      content: <StreamTab input={input} patch={patch} />,
+    },
+    {
       value: 'parsed',
       label: 'Parsed File',
       icon: <Braces className="w-4 h-4" />,
@@ -142,22 +148,16 @@ export function FormatterPreview() {
       ),
     },
     {
-      value: 'stream',
-      label: 'Stream',
-      icon: <Waves className="w-4 h-4" />,
-      content: <StreamTab input={input} patch={patch} />,
+      value: 'scoring',
+      label: 'Scoring',
+      icon: <Hash className="w-4 h-4" />,
+      content: <ScoringTab input={input} patch={patch} />,
     },
     {
       value: 'metadata',
       label: 'Metadata',
       icon: <Info className="w-4 h-4" />,
       content: <MetadataTab input={input} patch={patch} />,
-    },
-    {
-      value: 'scoring',
-      label: 'Scoring',
-      icon: <Hash className="w-4 h-4" />,
-      content: <ScoringTab input={input} patch={patch} />,
     },
   ];
 

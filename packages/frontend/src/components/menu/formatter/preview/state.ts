@@ -329,8 +329,6 @@ export const PREVIEW_SCENARIOS: readonly PreviewScenario[] = [
     input: {
       filename:
         'Series.Title.S02.COMPLETE.2160p.WEB-DL.DV.HDR10.DDP5.1.H.265-GROUP',
-      folderName:
-        'Series.Title.S02.COMPLETE.2160p.WEB-DL.DV.HDR10.DDP5.1.H.265-GROUP',
       size: 84000000000,
       folderSize: 84000000000,
       duration: undefined,
