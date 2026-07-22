@@ -14,7 +14,11 @@ import {
   parseDuration,
   extractInfoHashFromMagnet,
 } from './utils.js';
-import { mergeParsedFiles, arrayMerge } from './merge.js';
+import {
+  mergeParsedFiles,
+  arrayMerge,
+  applySeasonPackHeuristics,
+} from './merge.js';
 
 const logger = createLogger('parser');
 
@@ -593,23 +597,10 @@ class StreamParser {
 
     if (!merged) return undefined;
 
-    // Detect season pack based on folder size being significantly larger than file size
-    if (
-      !merged.seasonPack &&
-      merged.episodes &&
-      merged.episodes.length > 0 &&
-      parsedStream.folderSize &&
-      parsedStream.size &&
-      parsedStream.folderSize > parsedStream.size * 2
-    ) {
-      merged.seasonPack = true;
-    }
-    // Detect season pack when more than 5 episodes are present
-    if (!merged.seasonPack && merged.episodes && merged.episodes.length > 5) {
-      merged.seasonPack = true;
-    }
-
-    return merged;
+    return applySeasonPackHeuristics(merged, {
+      size: parsedStream.size,
+      folderSize: parsedStream.folderSize,
+    });
   }
 
   /**

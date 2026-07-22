@@ -19,38 +19,53 @@ router.use(formatApiRateLimiter);
 
 const logger = createLogger('server');
 
-// Schema for the formatter context that can be sent from the client
+// Schema for the formatter context that can be sent from the client.
+// Every field is nullish: an omitted key takes the dummy default below, while an
+// explicit null clears it, which is the only way to preview an absent field.
 const FormatterContextSchema = z.object({
   userData: UserDataSchema,
-  type: z.string().optional(),
-  isAnime: z.boolean().optional(),
-  queryType: z.string().optional(),
-  season: z.number().optional(),
-  episode: z.number().optional(),
-  title: z.string().optional(),
-  titles: z.array(z.string()).optional(),
-  year: z.number().optional(),
-  yearEnd: z.number().optional(),
-  genres: z.array(z.string()).optional(),
-  runtime: z.number().optional(),
-  absoluteEpisode: z.number().optional(),
-  relativeAbsoluteEpisode: z.number().optional(),
-  originalLanguage: z.string().optional(),
-  country: z.string().optional(),
-  episodeTitles: z.array(z.string()).optional(),
-  daysSinceRelease: z.number().optional(),
-  hasNextEpisode: z.boolean().optional(),
-  daysUntilNextEpisode: z.number().optional(),
-  daysSinceFirstAired: z.number().optional(),
-  daysSinceLastAired: z.number().optional(),
-  latestSeason: z.number().optional(),
-  anilistId: z.number().optional(),
-  malId: z.number().optional(),
-  hasSeaDex: z.boolean().optional(),
-  maxSeScore: z.number().optional(),
-  maxRegexScore: z.number().optional(),
-  episodeRuntime: z.number().optional(),
+  type: z.string().nullish(),
+  isAnime: z.boolean().nullish(),
+  queryType: z.string().nullish(),
+  season: z.number().nullish(),
+  episode: z.number().nullish(),
+  title: z.string().nullish(),
+  titles: z.array(z.string()).nullish(),
+  year: z.number().nullish(),
+  yearEnd: z.number().nullish(),
+  genres: z.array(z.string()).nullish(),
+  runtime: z.number().nullish(),
+  absoluteEpisode: z.number().nullish(),
+  relativeAbsoluteEpisode: z.number().nullish(),
+  originalLanguage: z.string().nullish(),
+  country: z.string().nullish(),
+  episodeTitles: z.array(z.string()).nullish(),
+  daysSinceRelease: z.number().nullish(),
+  hasNextEpisode: z.boolean().nullish(),
+  daysUntilNextEpisode: z.number().nullish(),
+  daysSinceFirstAired: z.number().nullish(),
+  daysSinceLastAired: z.number().nullish(),
+  latestSeason: z.number().nullish(),
+  anilistId: z.number().nullish(),
+  malId: z.number().nullish(),
+  hasSeaDex: z.boolean().nullish(),
+  maxSeScore: z.number().nullish(),
+  maxRegexScore: z.number().nullish(),
+  episodeRuntime: z.number().nullish(),
 });
+
+/**
+ * null to undefined, keeping the key present so it still overrides a dummy
+ * default when spread.
+ */
+function clearNulls(
+  context: z.infer<typeof FormatterContextSchema>
+): Partial<FormatterContext> {
+  const { userData, ...rest } = context;
+  return Object.fromEntries(
+    Object.entries(rest).map(([key, value]) => [key, value ?? undefined])
+  ) as Partial<FormatterContext>;
+}
 
 function createDummyFormatterContext(
   userData: any,
@@ -123,7 +138,7 @@ router.post('/', async (req: Request, res: Response) => {
         formatZodError(contextError)
       );
     }
-    contextOverrides = contextData;
+    contextOverrides = clearNulls(contextData);
   }
 
   const formatterContext = createDummyFormatterContext(

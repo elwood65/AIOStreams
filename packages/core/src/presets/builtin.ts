@@ -1,7 +1,11 @@
 import { ParsedStream, Stream, UserData } from '../db/index.js';
 import { StreamParser } from '../parser/index.js';
 import FileParser from '../parser/file.js';
-import { arrayMerge, mergeParsedFiles } from '../parser/merge.js';
+import {
+  arrayMerge,
+  mergeParsedFiles,
+  applySeasonPackHeuristics,
+} from '../parser/merge.js';
 import { ServiceId } from '../utils/constants.js';
 import {
   constants,
@@ -100,21 +104,10 @@ export class BuiltinStreamParser extends StreamParser {
 
     if (!merged) return undefined;
 
-    if (
-      !merged.seasonPack &&
-      merged.episodes &&
-      merged.episodes.length > 0 &&
-      parsedStream.folderSize &&
-      parsedStream.size &&
-      parsedStream.folderSize > parsedStream.size * 2
-    ) {
-      merged.seasonPack = true;
-    }
-    if (!merged.seasonPack && merged.episodes && merged.episodes.length > 5) {
-      merged.seasonPack = true;
-    }
-
-    return merged;
+    return applySeasonPackHeuristics(merged, {
+      size: parsedStream.size,
+      folderSize: parsedStream.folderSize,
+    });
   }
 
   protected getFolder(

@@ -1,7 +1,7 @@
 import { PageWrapper } from '../../shared/page-wrapper';
 import { PageControls } from '../../shared/page-controls';
 import { FormatterSelection } from './formatter-selection';
-import { FormatterPreview } from './formatter-preview';
+import { FormatterPreview } from './preview';
 import { useParentInheritance } from '@/context/userData';
 import { InheritedBadge } from '../../shared/inherited-badge';
 

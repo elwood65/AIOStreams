@@ -59,6 +59,30 @@ function richerParsedFile(
 }
 
 /**
+ * Marks a release as a season pack when the filename alone did not say so:
+ * a file much smaller than its folder is one episode of many, and no single
+ * episode carries six episode numbers.
+ */
+export function applySeasonPackHeuristics(
+  parsedFile: ParsedFile,
+  sizes: { size?: number; folderSize?: number }
+): ParsedFile {
+  if (parsedFile.seasonPack || !parsedFile.episodes?.length) return parsedFile;
+
+  if (
+    sizes.folderSize &&
+    sizes.size &&
+    sizes.folderSize > sizes.size * 2
+  ) {
+    parsedFile.seasonPack = true;
+  } else if (parsedFile.episodes.length > 5) {
+    parsedFile.seasonPack = true;
+  }
+
+  return parsedFile;
+}
+
+/**
  * Merges two ParsedFile objects (typically from folder and file parsing),
  * combining arrays and falling back between scalar fields.
  * The `overrides` parameter allows callers to override specific fields

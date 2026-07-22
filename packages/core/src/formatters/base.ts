@@ -88,6 +88,7 @@ export interface ParseValue {
     audioChannels: string[] | null;
     edition: string | null;
     editions: string[] | null;
+    /** @deprecated moved into `editions`; kept null so old templates don't error */
     remastered: null;
     regraded: boolean;
     repack: boolean;

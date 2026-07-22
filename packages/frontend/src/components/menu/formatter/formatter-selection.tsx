@@ -19,6 +19,7 @@ import { FaFileImport, FaFileExport, FaSave } from 'react-icons/fa';
 import { SnippetsButton } from './snippets-button';
 import { SavedFormattersModal } from './saved-formatters-modal';
 import { TemplateOutline } from './template-outline';
+import { getTemplates } from './templates';
 
 // Client-only UI preference (not synced to userData): a plain-textarea fallback.
 const SIMPLE_EDITOR_KEY = 'aiostreams:formatter-simple-editor';
@@ -31,23 +32,6 @@ function loadSimpleEditorPref(): boolean {
 }
 
 const formatterChoices = Object.values(constants.FORMATTER_DETAILS);
-
-// Read the active name/description templates from userData — single source of truth.
-function getTemplates(data: UserData): { name: string; description: string } {
-  const id = data.formatter.id;
-  const defs = data.formatter.definitions;
-  if (id === constants.CUSTOM_FORMATTER) {
-    return {
-      name: defs?.custom?.name ?? '',
-      description: defs?.custom?.description ?? '',
-    };
-  }
-  const override = defs?.overrides?.[id];
-  if (override)
-    return { name: override.name, description: override.description };
-  const builtin = BUILTIN_FORMATTER_DEFINITIONS[id];
-  return { name: builtin?.name ?? '', description: builtin?.description ?? '' };
-}
 
 // Write name+description back into userData for whatever formatter is currently active.
 function applyTemplates(

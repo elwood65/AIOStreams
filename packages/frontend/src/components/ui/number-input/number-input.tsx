@@ -132,6 +132,11 @@ export type NumberInputProps = Omit<
      */
     clampValueOnBlur?: boolean;
     /**
+     * Whether an empty input is a value in its own right. Without it, clearing
+     * the input (or a controlled value of undefined) snaps back to `min`.
+     */
+    allowEmpty?: boolean;
+    /**
      * Accessibility
      *
      * Specifies the localized strings that identifies the accessibility elements and their states
@@ -178,6 +183,7 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
         allowMouseWheel = true,
         formatOptions = { maximumFractionDigits: 2 },
         clampValueOnBlur = true,
+        allowEmpty = false,
         translations,
         locale,
         dir,
@@ -200,23 +206,30 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
       rightAddon: props1.rightAddon,
       rightIcon: props1.rightIcon,
     });
+    const isEmptyValue =
+      controlledValue === undefined ||
+      controlledValue === null ||
+      controlledValue === '';
+
     const service = useMachine(numberInput.machine, {
       id: basicFieldProps.id,
       name: basicFieldProps.name,
       disabled: basicFieldProps.disabled,
       readOnly: basicFieldProps.readonly,
       value:
-        controlledValue !== undefined && controlledValue !== null
-          ? String(controlledValue)
-          : defaultValue !== undefined && defaultValue !== null
-            ? String(defaultValue)
-            : undefined,
+        allowEmpty && isEmptyValue
+          ? ''
+          : controlledValue !== undefined && controlledValue !== null
+            ? String(controlledValue)
+            : defaultValue !== undefined && defaultValue !== null
+              ? String(defaultValue)
+              : undefined,
       min,
       max,
       step,
       allowMouseWheel,
       formatOptions,
-      clampValueOnBlur,
+      clampValueOnBlur: allowEmpty ? false : clampValueOnBlur,
       translations,
       locale,
       dir,
@@ -231,7 +244,9 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
 
     React.useEffect(() => {
       if (!isFirst.current) {
-        if (
+        if (allowEmpty && isEmptyValue) {
+          api.clearValue();
+        } else if (
           typeof controlledValue === 'string' &&
           !isNaN(Number(controlledValue))
         ) {
@@ -277,6 +292,7 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
             required={basicFieldProps.required}
             {...api.getInputProps()}
             {...rest}
+            placeholder={placeholder}
           />
 
           {!hideControls && (
