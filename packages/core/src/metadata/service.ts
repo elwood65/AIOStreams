@@ -595,7 +595,8 @@ export class MetadataService {
 
             // Sources name episodes differently (TMDB and Skyhook carry rival
             // English translations, keyed TVDB the original language for
-            // anime) and release groups follow all of them, so collect all.
+            // anime) and release groups follow all of them, so collect all
+            // that agree on which episode the request points at.
             let episodeTitles: MetadataTitle[] | undefined;
             let episodeYear: number | undefined;
             let seasonYear: number | undefined;
@@ -634,31 +635,38 @@ export class MetadataService {
                     : Promise.resolve(null),
                 ]);
 
-              const names: MetadataTitle[] = [];
-              if (tmdbEpisode.status === 'fulfilled' && tmdbEpisode.value) {
-                names.push(...(tmdbEpisode.value.titles ?? []));
-                episodeYear ??= yearOf(tmdbEpisode.value.airDate);
-              }
+              // The requested episode as each source numbers it, kept with its
+              // air date so numbering-scheme disagreements can be caught below.
+              const tmdbEp =
+                tmdbEpisode.status === 'fulfilled' && tmdbEpisode.value
+                  ? {
+                      airDate: tmdbEpisode.value.airDate,
+                      titles: tmdbEpisode.value.titles ?? [],
+                    }
+                  : undefined;
+              let tvdbEp:
+                | { airDate?: string; titles: MetadataTitle[] }
+                | undefined;
               if (tvdbEpisodes.status === 'fulfilled' && tvdbEpisodes.value) {
-                const episodes = tvdbEpisodes.value;
-                const match = episodes.find((e) => e.number === episodeNumber);
-                if (
-                  match?.name &&
-                  !names.some(
-                    (name) =>
-                      name.title.toLowerCase() === match.name!.toLowerCase()
-                  )
-                ) {
-                  names.push({ title: match.name });
+                const match = tvdbEpisodes.value.find(
+                  (e) => e.number === episodeNumber
+                );
+                if (match) {
+                  tvdbEp = {
+                    airDate: match.aired ?? undefined,
+                    titles: match.name ? [{ title: match.name }] : [],
+                  };
                 }
-                episodeYear ??= yearOf(match?.aired);
-                for (const episode of episodes) {
+                for (const episode of tvdbEpisodes.value) {
                   const year = yearOf(episode.aired);
                   if (year && (seasonYear === undefined || year < seasonYear)) {
                     seasonYear = year;
                   }
                 }
               }
+              let skyhookEp:
+                | { airDate?: string; titles: MetadataTitle[] }
+                | undefined;
               if (skyhookShow.status === 'fulfilled' && skyhookShow.value) {
                 for (const episode of skyhookShow.value.episodes ?? []) {
                   if (episode.seasonNumber !== seasonNumber) continue;
@@ -667,10 +675,12 @@ export class MetadataService {
                     seasonYear = year;
                   }
                   if (episode.episodeNumber !== episodeNumber) continue;
-                  if (episode.title) {
-                    names.push({ title: episode.title, language: 'en' });
-                  }
-                  episodeYear ??= year;
+                  skyhookEp = {
+                    airDate: episode.airDate ?? undefined,
+                    titles: episode.title
+                      ? [{ title: episode.title, language: 'en' }]
+                      : [],
+                  };
                 }
               }
               if (!seasonYear && cinemetaVideos?.length) {
@@ -680,6 +690,50 @@ export class MetadataService {
                   const year = yearOf(video.released);
                   if (year && (seasonYear === undefined || year < seasonYear)) {
                     seasonYear = year;
+                  }
+                }
+              }
+              episodeYear ??= yearOf(
+                tmdbEp?.airDate ?? tvdbEp?.airDate ?? skyhookEp?.airDate
+              );
+
+              // (season, episode) numbers mean whatever the provider the
+              // request was made in says they mean.
+              const cinemetaReleased = cinemetaVideos?.find(
+                (v) =>
+                  v.season === Number(id.season) && v.episode === episodeNumber
+              )?.released;
+              const referenceAirDate =
+                // the request's own provider is authoritative
+                (id.type === 'themoviedbId' ? tmdbEp?.airDate : undefined) ??
+                (id.type === 'thetvdbId' ? tvdbEp?.airDate : undefined) ??
+                // imdb requests are numbered by cinemeta
+                cinemetaReleased ??
+                // always fallback to tvdb/skyhook first, then tmdb.
+                tvdbEp?.airDate ??
+                skyhookEp?.airDate ??
+                tmdbEp?.airDate;
+              const agreesWithRequest = (airDate?: string) => {
+                if (!referenceAirDate || !airDate) return true;
+                const ref = new Date(referenceAirDate).getTime();
+                const value = new Date(airDate).getTime();
+                if (Number.isNaN(ref) || Number.isNaN(value)) return true;
+                return Math.abs(ref - value) <= 2 * 24 * 60 * 60 * 1000;
+              };
+
+              // TMDB first so its language tags survive dedup; skyhook (en)
+              // before TVDB (untagged) so the English tag is kept when present.
+              const names: MetadataTitle[] = [];
+              for (const ep of [tmdbEp, skyhookEp, tvdbEp]) {
+                if (!ep || !agreesWithRequest(ep.airDate)) continue;
+                for (const title of ep.titles) {
+                  if (
+                    !names.some(
+                      (name) =>
+                        name.title.toLowerCase() === title.title.toLowerCase()
+                    )
+                  ) {
+                    names.push(title);
                   }
                 }
               }
