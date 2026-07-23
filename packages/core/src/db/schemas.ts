@@ -1170,6 +1170,7 @@ export const ParsedStreamSchema = z.object({
   originalName: z.string().optional(),
   originalDescription: z.string().optional(),
   extra: z.record(z.string(), z.any()).optional(),
+  otherBehaviorHints: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type ParsedFile = z.infer<typeof ParsedFileSchema>;

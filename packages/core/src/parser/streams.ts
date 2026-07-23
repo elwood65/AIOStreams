@@ -115,6 +115,7 @@ class StreamParser {
       videoHash: stream.behaviorHints?.videoHash ?? undefined,
       originalName: stream.name ?? undefined,
       originalDescription: (stream.description || stream.title) ?? undefined,
+      otherBehaviorHints: stream.behaviorHints ?? undefined,
     };
 
     this.raiseErrorIfNecessary(stream, parsedStream);

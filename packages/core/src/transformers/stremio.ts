@@ -107,6 +107,7 @@ export class StremioTransformer {
           : undefined,
       subtitles: stream.subtitles,
       behaviorHints: {
+        ...stream.otherBehaviorHints,
         countryWhitelist: stream.countryWhitelist,
         notWebReady: stream.notWebReady,
         bingeGroup: options?.disableAutoplay ? undefined : bingeGroup,
