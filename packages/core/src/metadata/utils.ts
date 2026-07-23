@@ -8,7 +8,10 @@ export interface MetadataTitle {
  * Deduplicates a list of MetadataTitle entries by title string (case-insensitive).
  * Insertion order of first occurrence is preserved.
  */
-export function deduplicateTitles(titles: MetadataTitle[]): MetadataTitle[] {
+export function deduplicateTitles(
+  titles: MetadataTitle[],
+  originalLanguage?: string
+): MetadataTitle[] {
   const titleLangs = new Map<string, Set<string>>();
   const titleTrustedLangs = new Map<string, Set<string>>();
   const titleHasUntagged = new Set<string>();
@@ -44,6 +47,14 @@ export function deduplicateTitles(titles: MetadataTitle[]): MetadataTitle[] {
     } else if (trustedLangs.size === 0) {
       const unambiguous = langs.size === 1 && !titleHasUntagged.has(key);
       language = unambiguous ? [...langs][0] : undefined;
+    }
+    // Only rescues an ambiguous tag, so a trusted (TMDB) tag always wins.
+    if (
+      language === undefined &&
+      originalLanguage &&
+      langs.has(originalLanguage)
+    ) {
+      language = originalLanguage;
     }
     return {
       title: first.title,

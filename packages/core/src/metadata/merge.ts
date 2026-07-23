@@ -255,9 +255,15 @@ export function mergeMetadata(
     .map((source) => contributions[source]?.primaryTitle)
     .find(Boolean);
 
+  const originalLanguage = resolve(
+    contributions,
+    'originalLanguage',
+    mediaType
+  );
+
   const titles = assembleTitles(contributions);
   if (primaryTitle) titles.unshift({ title: primaryTitle });
-  const uniqueTitles = deduplicateTitles(titles);
+  const uniqueTitles = deduplicateTitles(titles, originalLanguage);
 
   const genres = [
     ...new Set(
@@ -275,7 +281,7 @@ export function mergeMetadata(
     titleCandidateCount: titles.length,
     year,
     yearEnd,
-    originalLanguage: resolve(contributions, 'originalLanguage', mediaType),
+    originalLanguage,
     country: resolve(contributions, 'country', mediaType),
     releaseDate: resolve(contributions, 'releaseDate', mediaType),
     runtime: resolve(contributions, 'runtime', mediaType),
