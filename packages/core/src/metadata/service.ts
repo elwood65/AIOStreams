@@ -199,13 +199,7 @@ export class MetadataService {
               promises.push(Promise.resolve(undefined));
             }
 
-            // Skyhook is Sonarr's keyless TVDB proxy. Fetched up front only when
-            // there is no key; a keyed lookup that fails retries it below, so the
-            // common path costs no extra request.
-            const tvdbKeyAvailable = !!(
-              this.config.tvdbApiKey || appConfig.metadata.tvdb.apiKey
-            );
-            if (!tvdbKeyAvailable && tvdbId) {
+            if (tvdbId) {
               promises.push(new SkyhookMetadata().getMetadata(tvdbId));
             } else {
               promises.push(Promise.resolve(undefined));
@@ -295,16 +289,6 @@ export class MetadataService {
               logger.debug(
                 `Failed to fetch skyhook metadata for ${id.fullId}: ${skyhookResult.reason}`
               );
-            }
-            // needs a tvdbId: skyhook has no other lookup key
-            if (!skyhookValue && tvdbResult.status === 'rejected' && tvdbId) {
-              try {
-                skyhookValue = await new SkyhookMetadata().getMetadata(tvdbId);
-              } catch (error) {
-                logger.debug(
-                  `Skyhook fallback failed for ${id.fullId}: ${error}`
-                );
-              }
             }
 
             if (skyhookValue) {
