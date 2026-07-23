@@ -135,6 +135,7 @@ export interface ParseValue {
     seMatched: string | null;
     rseMatched: string[];
     preloading: boolean;
+    idMatched: boolean;
   };
   metadata?: {
     queryType: string | null;
@@ -645,6 +646,7 @@ export abstract class BaseFormatter {
             (name): name is string => typeof name === 'string'
           ) || [],
         preloading: stream.preloading ?? false,
+        idMatched: stream.idMatched ?? false,
       },
       metadata: {
         queryType: this.formatterContext.queryType || null,
