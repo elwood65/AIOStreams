@@ -336,6 +336,7 @@ export class LocalSegmentFetcher implements SegmentFetcher {
         const raw = await conn.body(
           segment.messageId,
           undefined,
+          this.opts.segmentStallTimeoutMs,
           this.opts.segmentTimeoutMs
         );
         // Failover attempts run sequentially, so re-decoding a retry into the
@@ -372,6 +373,7 @@ export class LocalSegmentFetcher implements SegmentFetcher {
           segment.messageId,
           (chunk) => capture.push(chunk),
           undefined,
+          this.opts.segmentStallTimeoutMs,
           this.opts.segmentTimeoutMs
         );
         return { value: capture.finish(), bytes: rawBytes };
@@ -432,7 +434,7 @@ export class LocalSegmentFetcher implements SegmentFetcher {
               value: await conn.stat(
                 messageId,
                 undefined,
-                this.opts.segmentTimeoutMs
+                this.opts.segmentStallTimeoutMs
               ),
               bytes: 0,
             }),
@@ -488,6 +490,7 @@ export class LocalSegmentFetcher implements SegmentFetcher {
             const raw = await conn.body(
               segment.messageId,
               undefined,
+              this.opts.segmentStallTimeoutMs,
               this.opts.segmentTimeoutMs
             );
             return { value: raw.length, bytes: raw.length };

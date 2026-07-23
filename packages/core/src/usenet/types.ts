@@ -61,8 +61,18 @@ export interface EngineOptions {
   segmentDiskCacheBytes: number;
   /** Absolute base directory for the on-disk segment cache. */
   segmentDiskCachePath?: string;
-  /** Per-command/segment hard timeout in milliseconds. */
+  /**
+   * Total wall-clock budget for one segment fetch, in milliseconds: a segment
+   * still downloading (even slowly) past this is abandoned and retried
+   * elsewhere. `0` disables it.
+   */
   segmentTimeoutMs: number;
+  /**
+   * Rolling inactivity timeout for one segment fetch, in milliseconds: the
+   * connection is dropped (and the work retried) after this long with no bytes
+   * received at all. Catches dead/hung connections.
+   */
+  segmentStallTimeoutMs: number;
   /** TCP dial timeout in milliseconds. */
   dialTimeoutMs: number;
   /** Idle connection TTL before considered stale. */
@@ -134,6 +144,7 @@ export const DEFAULT_ENGINE_OPTIONS: EngineOptions = {
   streamingPriority: 0.8,
   segmentDiskCacheBytes: 2 * 1024 * 1024 * 1024,
   segmentTimeoutMs: 30_000,
+  segmentStallTimeoutMs: 30_000,
   dialTimeoutMs: 15_000,
   idleConnectionMs: 60_000,
   streamIdleTimeoutMs: 60 * 60_000,

@@ -194,8 +194,23 @@ export const usenetSchema = {
     default: 30,
     label: 'Segment timeout',
     description:
-      'How long to wait for one piece of a download before giving up on it and retrying elsewhere.',
+      'How long to wait for one piece of a download before giving up on it ' +
+      'and retrying elsewhere. Set to **0** to never give up on a piece that ' +
+      'is still downloading.',
     env: 'USENET_SEGMENT_TIMEOUT',
+    requiresRestart: false,
+    secret: false,
+    ui: { kind: 'duration' as const, hidden: true },
+  },
+  segmentStallTimeout: {
+    schema: seconds,
+    default: 30,
+    label: 'Segment stall timeout',
+    description:
+      'How long to wait with no data arriving for a piece before dropping ' +
+      'the connection and retrying. This catches connections that have hung ' +
+      'or gone dead.',
+    env: 'USENET_SEGMENT_STALL_TIMEOUT',
     requiresRestart: false,
     secret: false,
     ui: { kind: 'duration' as const, hidden: true },

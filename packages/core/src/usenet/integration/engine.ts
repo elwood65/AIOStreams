@@ -73,6 +73,7 @@ export function buildUsenetEngineOptions(
     segmentDiskCacheBytes: diskCacheBytes,
     segmentDiskCachePath: diskCachePath,
     segmentTimeoutMs: u.segmentTimeout * 1000,
+    segmentStallTimeoutMs: u.segmentStallTimeout * 1000,
     dialTimeoutMs: u.dialTimeout * 1000,
     idleConnectionMs: u.idleConnection * 1000,
     streamIdleTimeoutMs: u.streamIdleTimeout * 1000,

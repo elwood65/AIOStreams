@@ -45,8 +45,12 @@ interface PipelineRequest {
   stage: 'status' | 'payload';
   resolve: (value: any) => void;
   reject: (err: Error) => void;
-  /** Per-command read budget (ms) for the rolling stall timer. */
-  timeoutMs: number;
+  /** Rolling inactivity budget (ms); reset on every inbound byte. */
+  stallTimeoutMs: number;
+  /** Total wall-clock budget (ms), or `Infinity` for stall-only (no deadline). */
+  totalTimeoutMs: number;
+  /** Absolute epoch-ms deadline (`writtenAt + totalTimeoutMs`), or `Infinity`. */
+  deadlineAt: number;
   onAbort?: () => void;
   signal?: AbortSignal;
   /** Epoch ms the command was written; the status line's arrival dates from here. */
@@ -75,10 +79,12 @@ const READ_BUF_SIZE = 256 * 1024;
  * A single NNTP connection over TCP or TLS. Supports **pipelining**: multiple
  * `BODY`/`STAT` commands may be in flight at once (bounded by the caller), with
  * responses matched to requests FIFO. A rolling stall timer destroys the socket
- * if the peer stops making progress; any socket/timeout error rejects the whole
- * in-flight queue (the failover layer resubmits), so one hung stream can't wedge
- * the rest. A clean `430` rejects only its own request; the connection stays
- * healthy. GROUP/AUTH/greeting are issued sequentially (never pipelined).
+ * if the peer stops making progress, and an optional absolute per-request
+ * deadline destroys it if a transfer keeps trickling but never finishes; either
+ * way any socket/timeout error rejects the whole in-flight queue (the failover
+ * layer resubmits), so one hung stream can't wedge the rest. A clean `430`
+ * rejects only its own request; the connection stays healthy. GROUP/AUTH/greeting
+ * are issued sequentially (never pipelined).
  */
 export class NntpConnection {
   readonly id: number;
@@ -364,13 +370,16 @@ export class NntpConnection {
   body(
     messageId: string,
     signal: AbortSignal | undefined,
-    timeoutMs: number
+    stallTimeoutMs: number,
+    totalTimeoutMs?: number
   ): Promise<Buffer> {
     return this.submit<Buffer>(
       'body',
       `BODY <${messageId}>`,
       signal,
-      timeoutMs
+      stallTimeoutMs,
+      undefined,
+      totalTimeoutMs
     );
   }
 
@@ -384,14 +393,16 @@ export class NntpConnection {
     messageId: string,
     onChunk: (chunk: Buffer) => void,
     signal: AbortSignal | undefined,
-    timeoutMs: number
+    stallTimeoutMs: number,
+    totalTimeoutMs?: number
   ): Promise<number> {
     return this.submit<number>(
       'body',
       `BODY <${messageId}>`,
       signal,
-      timeoutMs,
-      onChunk
+      stallTimeoutMs,
+      onChunk,
+      totalTimeoutMs
     );
   }
 
@@ -493,8 +504,9 @@ export class NntpConnection {
     kind: 'line' | 'body',
     line: string,
     signal: AbortSignal | undefined,
-    timeoutMs: number,
-    consumer?: (chunk: Buffer) => void
+    stallTimeoutMs: number,
+    consumer?: (chunk: Buffer) => void,
+    totalTimeoutMs?: number
   ): Promise<T> {
     if (!this.isUsable) {
       return Promise.reject(
@@ -511,7 +523,13 @@ export class NntpConnection {
       );
     }
     this.write(line);
-    return this.queueRequest<T>(kind, signal, timeoutMs, consumer);
+    return this.queueRequest<T>(
+      kind,
+      signal,
+      stallTimeoutMs,
+      consumer,
+      totalTimeoutMs
+    );
   }
 
   /**
@@ -526,19 +544,27 @@ export class NntpConnection {
   private queueRequest<T>(
     kind: 'line' | 'body',
     signal: AbortSignal | undefined,
-    timeoutMs: number,
-    consumer?: (chunk: Buffer) => void
+    stallTimeoutMs: number,
+    consumer?: (chunk: Buffer) => void,
+    totalTimeoutMs?: number
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      const now = Date.now();
+      // A non-positive/absent total budget means "no wall-clock deadline"; only
+      // the rolling stall timer bounds the request.
+      const total =
+        totalTimeoutMs && totalTimeoutMs > 0 ? totalTimeoutMs : Infinity;
       const req: PipelineRequest = {
         kind,
         stage: 'status',
         resolve,
         reject,
-        timeoutMs,
+        stallTimeoutMs,
+        totalTimeoutMs: total,
+        deadlineAt: total === Infinity ? Infinity : now + total,
         signal,
         consumer,
-        writtenAt: Date.now(),
+        writtenAt: now,
         // The command was written immediately before this push, so an empty
         // queue here means it went out on an otherwise-silent connection.
         solo: this.queue.length === 0,
@@ -564,10 +590,17 @@ export class NntpConnection {
   }
 
   /**
-   * (Re)arm the rolling "no progress" timer based on the head request's budget.
-   * Reset on every inbound byte (see {@link attach}) and whenever the head
-   * advances, so it fires only after a full `timeoutMs` of silence with work
-   * still in flight.
+   * (Re)arm the head request's progress timer. It enforces two independent
+   * budgets, whichever bites first:
+   *  - the rolling stall budget (`stallTimeoutMs`), re-armed on every inbound
+   *    byte and whenever the head advances, so it fires after a full window of
+   *    SILENCE, to catch a connection that went dead mid-transfer; and
+   *  - the absolute per-request deadline (`deadlineAt`), a wall-clock cap that
+   *    inbound bytes do not push out, so a transfer that keeps trickling bytes
+   *    (never silent, never finished) is still abandoned once its total budget
+   *    elapses. `Infinity` when the caller set no total budget (stall only).
+   * The single timer is armed to `min(remaining stall, remaining deadline)`;
+   * destroying the connection makes the failover layer resubmit the work.
    */
   private armStallTimer(): void {
     if (this.stallTimer) clearTimeout(this.stallTimer);
@@ -576,21 +609,33 @@ export class NntpConnection {
       this.stallTimer = null;
       return;
     }
-    const timeoutMs = head.timeoutMs;
+    const stallMs = head.stallTimeoutMs;
+    const untilDeadline = head.deadlineAt - Date.now(); // Infinity when unbounded
+    const timeoutMs = Math.max(0, Math.min(stallMs, untilDeadline));
     this.stallTimer = setTimeout(() => {
       this.stallTimer = null;
+      // Distinguish the two causes for the log/error: the absolute deadline
+      // (transfer too slow overall) vs a full stall window of silence.
+      const deadlineHit =
+        head.deadlineAt !== Infinity && Date.now() >= head.deadlineAt;
       logger.warn(
         {
           provider: this.label,
           connId: this.id,
-          timeoutMs,
           inFlight: this.queue.length,
+          ...(deadlineHit
+            ? { totalTimeoutMs: head.totalTimeoutMs }
+            : { stallTimeoutMs: stallMs }),
         },
-        'nntp connection stalled; destroying'
+        deadlineHit
+          ? 'nntp segment exceeded its total time budget; destroying'
+          : 'nntp connection stalled; destroying'
       );
       this.fatalError = new NntpError(
         'timeout',
-        `no response progress for ${timeoutMs}ms`,
+        deadlineHit
+          ? `segment exceeded total budget of ${head.totalTimeoutMs}ms`
+          : `no response progress for ${stallMs}ms`,
         { provider: this.label }
       );
       this.destroy();
