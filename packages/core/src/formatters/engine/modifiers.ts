@@ -9,6 +9,11 @@ import {
   makeSmall,
   normaliseDuration,
 } from '../utils.js';
+import {
+  languageToCode,
+  languageToEmoji,
+  normaliseLanguage,
+} from '../../utils/languages.js';
 import { substituteTools } from './sentinels.js';
 
 /**
@@ -22,6 +27,24 @@ import { substituteTools } from './sentinels.js';
 
 // ---------------------------------------------------------------- plain tables
 
+const toLanguageCode = (value: string): string => {
+  const name = normaliseLanguage(value) ?? value;
+  return languageToCode(name) || name.toUpperCase();
+};
+
+const toLanguageEmoji = (value: string): string => {
+  const name = normaliseLanguage(value) ?? value;
+  return languageToEmoji(name) ?? '';
+};
+
+// Per element, dropping blanks and de-duplicating
+const mapLanguages = (
+  value: string[],
+  convert: (item: string) => string
+): string[] => [
+  ...new Set(value.map((item) => convert(String(item))).filter(Boolean)),
+];
+
 const stringModifiers = {
   upper: (value: string) => value.toUpperCase(),
   lower: (value: string) => value.toLowerCase(),
@@ -33,12 +56,13 @@ const stringModifiers = {
       .join(' '),
   length: (value: string) => value.length.toString(),
   reverse: (value: string) => value.split('').reverse().join(''),
-  // not btoa: it throws above U+00FF, which real release names hit constantly
   base64: (value: string) => Buffer.from(value, 'utf8').toString('base64'),
   string: (value: string) => value,
   smallcaps: (value: string) => makeSmall(value),
   subscript: (value: string) => mapChars(value, DIGITS, SUBSCRIPT_DIGITS),
   superscript: (value: string) => mapChars(value, DIGITS, SUPERSCRIPT_DIGITS),
+  languagecode: toLanguageCode,
+  languageemoji: toLanguageEmoji,
 };
 
 const DIGITS = '0123456789+-=()';
@@ -95,6 +119,8 @@ const arrayModifiers = {
   rsort: sortBy(false),
   lsort: (value: any[]) => [...value].sort(),
   reverse: (value: string[]) => [...value].reverse(),
+  languagecode: (value: string[]) => mapLanguages(value, toLanguageCode),
+  languageemoji: (value: string[]) => mapLanguages(value, toLanguageEmoji),
   string: (value: string[]) => value.toString(),
 };
 

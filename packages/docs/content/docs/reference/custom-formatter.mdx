@@ -31,15 +31,15 @@ Modifiers are chained with `::`:
 
 #### Source
 
-| Variable            | Type    | Description                                                       |
-| ------------------- | ------- | ----------------------------------------------------------------- |
-| `{stream.type}`     | string  | Type: `debrid`, `usenet`, `http`, `live`, `youtube`, `p2p`        |
-| `{stream.proxied}`  | boolean | Whether the stream is proxied (e.g. MediaFlow)                    |
-| `{stream.library}`  | boolean | Whether the file is already in your "library" e.g. debrid account |
-| `{stream.idMatched}`| boolean | Whether the source identified the release by external ID rather than by searching its title as text |
-| `{stream.indexer}`  | string  | Source indexer                                                    |
-| `{stream.message}`  | string  | Additional status message                                         |
-| `{stream.infoHash}` | string  | Torrent info hash                                                 |
+| Variable             | Type    | Description                                                                                         |
+| -------------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `{stream.type}`      | string  | Type: `debrid`, `usenet`, `http`, `live`, `youtube`, `p2p`                                          |
+| `{stream.proxied}`   | boolean | Whether the stream is proxied (e.g. MediaFlow)                                                      |
+| `{stream.library}`   | boolean | Whether the file is already in your "library" e.g. debrid account                                   |
+| `{stream.idMatched}` | boolean | Whether the source identified the release by external ID rather than by searching its title as text |
+| `{stream.indexer}`   | string  | Source indexer                                                                                      |
+| `{stream.message}`   | string  | Additional status message                                                                           |
+| `{stream.infoHash}`  | string  | Torrent info hash                                                                                   |
 
 #### File
 
@@ -118,20 +118,20 @@ Modifiers are chained with `::`:
 
 #### Release
 
-| Variable                | Type     | Description                              |
-| ----------------------- | -------- | ---------------------------------------- |
-| `{stream.title}`        | string   | Media title extracted from filename      |
-| `{stream.year}`         | string   | Year extracted from filename             |
+| Variable                | Type     | Description                                         |
+| ----------------------- | -------- | --------------------------------------------------- |
+| `{stream.title}`        | string   | Media title extracted from filename                 |
+| `{stream.year}`         | string   | Year extracted from filename                        |
 | `{stream.country}`      | string   | Country tag from the release name (e.g. `UK`, `US`) |
-| `{stream.date}`         | string   | Date extracted from filename             |
-| `{stream.releaseGroup}` | string   | Name of the release group                |
-| `{stream.editions}`     | string[] | Special editions (e.g. `Director's Cut`) |
-| `{stream.repack}`       | boolean  | Whether the release is a repack          |
-| `{stream.proper}`       | boolean  | Whether the release is a proper          |
-| `{stream.regraded}`     | boolean  | Whether the content is regraded          |
-| `{stream.uncensored}`   | boolean  | Whether the content is uncensored        |
-| `{stream.unrated}`      | boolean  | Whether the content is unrated           |
-| `{stream.upscaled}`     | boolean  | Whether the content has been upscaled    |
+| `{stream.date}`         | string   | Date extracted from filename                        |
+| `{stream.releaseGroup}` | string   | Name of the release group                           |
+| `{stream.editions}`     | string[] | Special editions (e.g. `Director's Cut`)            |
+| `{stream.repack}`       | boolean  | Whether the release is a repack                     |
+| `{stream.proper}`       | boolean  | Whether the release is a proper                     |
+| `{stream.regraded}`     | boolean  | Whether the content is regraded                     |
+| `{stream.uncensored}`   | boolean  | Whether the content is uncensored                   |
+| `{stream.unrated}`      | boolean  | Whether the content is unrated                      |
+| `{stream.upscaled}`     | boolean  | Whether the content has been upscaled               |
 
 #### Season / Episode
 
@@ -200,35 +200,35 @@ Modifiers are chained with `::`:
 
 These describe the item that was requested, not the release, so they are identical for every stream in the response.
 
-| Variable                            | Type     | Description                                                                     |
-| ----------------------------------- | -------- | ------------------------------------------------------------------------------- |
-| `{metadata.queryType}`              | string   | Media type being queried (`movie`, `series`, `anime.series`, or `anime.movie`)  |
-| `{metadata.type}`                   | string   | Stremio type being queried (`movie` or `series`)                                |
-| `{metadata.isAnime}`                | boolean  | Whether the requested item is anime                                             |
-| `{metadata.title}`                  | string   | Title of the media being queried                                                |
-| `{metadata.titles}`                 | string[] | All known titles, across sources and languages                                  |
-| `{metadata.year}`                   | number   | Release year                                                                    |
-| `{metadata.yearEnd}`                | number   | Year the series ended                                                           |
-| `{metadata.runtime}`                | number   | Movie runtime in minutes                                                        |
-| `{metadata.episodeRuntime}`         | number   | Episode runtime in minutes                                                      |
-| `{metadata.genres}`                 | string[] | List of genres                                                                  |
-| `{metadata.originalLanguage}`       | string   | Language the item was originally produced in (e.g. `Japanese`)                  |
-| `{metadata.country}`                | string   | Country of origin (e.g. `GB`), used to tell same-name series apart              |
-| `{metadata.season}`                 | number   | Requested season number                                                         |
-| `{metadata.episode}`                | number   | Requested episode number                                                        |
-| `{metadata.absoluteEpisode}`        | number   | Requested episode as an absolute number across all seasons                      |
-| `{metadata.relativeAbsoluteEpisode}`| number   | Absolute episode number within the current AniDB entry (for split entries)      |
-| `{metadata.episodeTitle}`           | string   | Title of the requested episode                                                  |
-| `{metadata.episodeTitles}`          | string[] | All known titles of the requested episode, across sources and languages         |
-| `{metadata.latestSeason}`           | number   | Highest season number the series has                                            |
-| `{metadata.daysSinceRelease}`       | number   | Days since the movie or requested episode was released                          |
-| `{metadata.daysSinceFirstAired}`    | number   | Days since the series first aired                                               |
-| `{metadata.daysSinceLastAired}`     | number   | Days since the most recent episode aired                                        |
-| `{metadata.hasNextEpisode}`         | boolean  | Whether a further episode is scheduled                                          |
-| `{metadata.daysUntilNextEpisode}`   | number   | Days until the next episode airs                                                |
-| `{metadata.anilistId}`              | number   | AniList ID (anime only)                                                         |
-| `{metadata.malId}`                  | number   | MyAnimeList ID (anime only)                                                     |
-| `{metadata.hasSeaDex}`              | boolean  | Whether the requested item has a SeaDex entry at all                            |
+| Variable                             | Type     | Description                                                                                                                   |
+| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `{metadata.queryType}`               | string   | Media type being queried (`movie`, `series`, `anime.series`, or `anime.movie`)                                                |
+| `{metadata.type}`                    | string   | Stremio type being queried (`movie` or `series`)                                                                              |
+| `{metadata.isAnime}`                 | boolean  | Whether the requested item is anime                                                                                           |
+| `{metadata.title}`                   | string   | Title of the media being queried                                                                                              |
+| `{metadata.titles}`                  | string[] | All known titles, across sources and languages                                                                                |
+| `{metadata.year}`                    | number   | Release year                                                                                                                  |
+| `{metadata.yearEnd}`                 | number   | Year the series ended                                                                                                         |
+| `{metadata.runtime}`                 | number   | Movie runtime in minutes                                                                                                      |
+| `{metadata.episodeRuntime}`          | number   | Episode runtime in minutes                                                                                                    |
+| `{metadata.genres}`                  | string[] | List of genres                                                                                                                |
+| `{metadata.originalLanguage}`        | string   | Language the item was originally produced in (e.g. `Japanese`); use `::languageCode` / `::languageEmoji` for its code or flag |
+| `{metadata.country}`                 | string   | Country of origin (e.g. `GB`), used to tell same-name series apart                                                            |
+| `{metadata.season}`                  | number   | Requested season number                                                                                                       |
+| `{metadata.episode}`                 | number   | Requested episode number                                                                                                      |
+| `{metadata.absoluteEpisode}`         | number   | Requested episode as an absolute number across all seasons                                                                    |
+| `{metadata.relativeAbsoluteEpisode}` | number   | Absolute episode number within the current AniDB entry (for split entries)                                                    |
+| `{metadata.episodeTitle}`            | string   | Title of the requested episode                                                                                                |
+| `{metadata.episodeTitles}`           | string[] | All known titles of the requested episode, across sources and languages                                                       |
+| `{metadata.latestSeason}`            | number   | Highest season number the series has                                                                                          |
+| `{metadata.daysSinceRelease}`        | number   | Days since the movie or requested episode was released                                                                        |
+| `{metadata.daysSinceFirstAired}`     | number   | Days since the series first aired                                                                                             |
+| `{metadata.daysSinceLastAired}`      | number   | Days since the most recent episode aired                                                                                      |
+| `{metadata.hasNextEpisode}`          | boolean  | Whether a further episode is scheduled                                                                                        |
+| `{metadata.daysUntilNextEpisode}`    | number   | Days until the next episode airs                                                                                              |
+| `{metadata.anilistId}`               | number   | AniList ID (anime only)                                                                                                       |
+| `{metadata.malId}`                   | number   | MyAnimeList ID (anime only)                                                                                                   |
+| `{metadata.hasSeaDex}`               | boolean  | Whether the requested item has a SeaDex entry at all                                                                          |
 
 ### Debug
 
@@ -272,22 +272,24 @@ A quoted value can be used wherever a field is expected, which is useful for pip
 
 ### String Modifiers
 
-| Modifier                           | Description                                           |
-| ---------------------------------- | ----------------------------------------------------- |
-| `::upper`                          | Convert to UPPERCASE                                  |
-| `::lower`                          | Convert to lowercase                                  |
-| `::smallcaps`                      | Convert letters to ꜱᴍᴀʟʟ ᴄᴀᴘꜱ                         |
-| `::subscript`                      | Convert digits to ₀₁₂₃₄₅₆₇₈₉                          |
-| `::superscript`                    | Convert digits to ⁰¹²³⁴⁵⁶⁷⁸⁹                          |
-| `::translate('from', 'to')`        | Map characters by position                            |
-| `::title`                          | Title Case (capitalise first letter of each word)     |
-| `::replace('find', 'replaceWith')` | Replace all occurrences of `find`                     |
-| `::remove('a', 'b', …)`            | Delete every occurrence of each argument              |
-| `::truncate(N)`                    | Truncate to `N` characters and append `…`             |
-| `::date('pattern')`                | Reformat a date — see [Date patterns](#date-patterns) |
-| `::length`                         | Return length of the string                           |
-| `::reverse`                        | Reverse the string                                    |
-| `::base64`                         | Encode as base64                                      |
+| Modifier                           | Description                                                    |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `::upper`                          | Convert to UPPERCASE                                           |
+| `::lower`                          | Convert to lowercase                                           |
+| `::smallcaps`                      | Convert letters to ꜱᴍᴀʟʟ ᴄᴀᴘꜱ                                  |
+| `::subscript`                      | Convert digits to ₀₁₂₃₄₅₆₇₈₉                                   |
+| `::superscript`                    | Convert digits to ⁰¹²³⁴⁵⁶⁷⁸⁹                                   |
+| `::translate('from', 'to')`        | Map characters by position                                     |
+| `::title`                          | Title Case (capitalise first letter of each word)              |
+| `::replace('find', 'replaceWith')` | Replace all occurrences of `find`                              |
+| `::remove('a', 'b', …)`            | Delete every occurrence of each argument                       |
+| `::truncate(N)`                    | Truncate to `N` characters and append `…`                      |
+| `::date('pattern')`                | Reformat a date — see [Date patterns](#date-patterns)          |
+| `::length`                         | Return length of the string                                    |
+| `::reverse`                        | Reverse the string                                             |
+| `::base64`                         | Encode as base64                                               |
+| `::languageCode`                   | A language name or code → its ISO 639 code (`Japanese` → `JA`) |
+| `::languageEmoji`                  | A language name or code → its flag emoji (`Japanese` → 🇯🇵)     |
 
 `::smallcaps` only affects letters, so it combines with the digit modifiers:
 
@@ -409,6 +411,8 @@ Patterns chain with the other modifiers as usual:
 | `::rsort`             | Reverse sort                                           |
 | `::lsort`             | Lexicographic sort (case-sensitive)                    |
 | `::reverse`           | Reverse order                                          |
+| `::languageCode`      | Each language name/code → its ISO 639 code             |
+| `::languageEmoji`     | Each language name/code → its flag emoji               |
 
 ### Conditional Modifiers
 
