@@ -419,11 +419,7 @@ export class TMDBMetadata {
           language: 'en',
         });
       }
-      primaryTitle =
-        movieData.original_language !== 'en'
-          ? (movieData.original_title ?? movieData.title)
-          : movieData.title;
-
+      primaryTitle = movieData.title;
       originalLanguage = movieData.original_language;
       country = normaliseCountryCode(movieData.origin_country?.[0]);
       releaseDate = movieData.release_date;
@@ -442,10 +438,7 @@ export class TMDBMetadata {
           language: 'en',
         });
       }
-      primaryTitle =
-        tvData.original_language !== 'en'
-          ? (tvData.original_name ?? tvData.name)
-          : tvData.name;
+      primaryTitle = tvData.name;
       originalLanguage = tvData.original_language;
       country = normaliseCountryCode(tvData.origin_country?.[0]);
       releaseDate = tvData.first_air_date ?? undefined;
