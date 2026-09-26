@@ -287,7 +287,7 @@ function Menu({
       align="end"
       sideOffset={8}
       onOpenChange={onOpenChange}
-      className="max-h-[60vh] min-w-[12rem] max-w-[min(22rem,90vw)] overflow-y-auto bg-gray-950/95"
+      className="flex max-h-[60vh] min-w-[12rem] max-w-[min(22rem,90vw)] flex-col bg-gray-950/95"
       trigger={
         <ControlButton name={name} label={label}>
           {icon}
@@ -295,21 +295,23 @@ function Menu({
       }
     >
       <DropdownMenuLabel>{label}</DropdownMenuLabel>
-      {options.map((option) => (
-        <DropdownMenuItem
-          key={option.id}
-          onClick={() => onSelect(option.id === '' ? null : option.id)}
-        >
-          <LuCheck
-            className={cn(
-              'flex-none',
-              (value ?? '') === option.id ? 'opacity-100' : 'opacity-0'
-            )}
-          />
-          <span className="[overflow-wrap:anywhere]">{option.label}</span>
-        </DropdownMenuItem>
-      ))}
-      {footer}
+      <div className="min-h-0 overflow-y-auto">
+        {options.map((option) => (
+          <DropdownMenuItem
+            key={option.id}
+            onClick={() => onSelect(option.id === '' ? null : option.id)}
+          >
+            <LuCheck
+              className={cn(
+                'flex-none',
+                (value ?? '') === option.id ? 'opacity-100' : 'opacity-0'
+              )}
+            />
+            <span className="[overflow-wrap:anywhere]">{option.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </div>
+      {footer && <div className="-mx-2 mt-1 border-t px-2">{footer}</div>}
     </DropdownMenu>
   );
 }
