@@ -317,6 +317,8 @@ export async function collectionMembers(
   > & {
     /** A source known to hold none of these is passed over unread. */
     kinds?: ContentKind[];
+    /** Skips sources not seen holding collections, else read to the end for nothing. */
+    collectionsOnly?: boolean;
   }
 ): Promise<CatalogPage> {
   const want = opts.startIndex + opts.limit;
@@ -346,9 +348,15 @@ export async function collectionMembers(
     const sourceKey = `${source.type}|${source.catalogId}|${source.genre ?? ''}`;
     if (!catalog || walked.has(sourceKey)) continue;
     walked.add(sourceKey);
-    if (opts.kinds) {
+    if (opts.kinds || opts.collectionsOnly) {
       const held = await catalogKinds(engine, catalog);
-      if (held && !held.some((k) => opts.kinds!.includes(k))) continue;
+      if (opts.kinds && held && !held.some((k) => opts.kinds!.includes(k)))
+        continue;
+      if (
+        opts.collectionsOnly &&
+        !(await catalogHasCollections(engine.getUserData(), catalog))
+      )
+        continue;
     }
     const start = Math.max(0, opts.startIndex - offset);
     const page = await getCatalogPage(engine, catalog, {

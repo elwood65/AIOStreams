@@ -132,6 +132,7 @@ export function ItemPage({
                 focusEpisodeId={episodeId}
               />
             )}
+            {data.Type === 'BoxSet' && <SubCollections parent={data} />}
             {data.Type === 'BoxSet' && <Members parent={data} />}
             <CastAndCrew people={data.People} />
             <Details item={data} />
@@ -852,6 +853,46 @@ function seasonSummary(
   ]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** Collections inside this one, which the members' kind filter leaves out. */
+function SubCollections({ parent }: { parent: BaseItemDto }) {
+  const { client } = useSession();
+  const pages = useItemPages(parent.Id!, { types: 'BoxSet' });
+  const all = pages.data?.pages.flatMap((p) => p.Items ?? []) ?? [];
+  // Some servers ignore the filter here, listing sub-collections first.
+  const items = all.filter((i) => i.Type === 'BoxSet');
+  const filtered = items.length === all.length;
+  const landscape =
+    items.length > 0 &&
+    items.filter((i) => cardShape(i) === 'landscape').length > items.length / 2;
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = pages;
+  const more = React.useCallback(() => {
+    if (filtered && hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [filtered, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  if (!items.length) return null;
+  return (
+    <MediaRow
+      id="sub-collections"
+      title="Collections"
+      shape={landscape ? 'wide' : 'poster'}
+      loadingMore={isFetchingNextPage}
+      onEndReached={more}
+    >
+      {items.map((item) => (
+        <ItemMenu key={item.Id} item={item}>
+          <PosterCard
+            href={href(itemPath(item))}
+            shape={landscape ? 'landscape' : cardShape(item)}
+            image={posterUrl(client, item, { maxWidth: landscape ? 640 : 400 })}
+            title={item.Name ?? ''}
+            subtitle={itemSubtitle(item)}
+            watched={item.UserData?.Played}
+          />
+        </ItemMenu>
+      ))}
+    </MediaRow>
+  );
 }
 
 /** A collection's members, paged like a library. */

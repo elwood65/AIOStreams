@@ -71,6 +71,10 @@ function typeFilter(req: Request): Set<string> | null {
   return types.length ? new Set(types) : null;
 }
 
+function isBoxsetOnly(types: Set<string> | null): boolean {
+  return !!types && types.size === 1 && types.has('boxset');
+}
+
 function excludedTypes(req: Request): Set<string> {
   return new Set(qlist(req, 'ExcludeItemTypes').map((t) => t.toLowerCase()));
 }
@@ -141,7 +145,7 @@ async function viewsForTypes(
   if (!kinds) return views;
   // A collection is a movie-typed meta, so a boxset row would otherwise pull in
   // every movie catalog and filter it away item by item.
-  const boxsetOnly = !!types && types.size === 1 && types.has('boxset');
+  const boxsetOnly = isBoxsetOnly(types);
   const evidence = await Promise.all(
     views.map((v) => knownCatalogKinds(ctx.userData, v.catalog))
   );
@@ -491,6 +495,7 @@ async function handleItems(
         cursorKey: `${ctx.scope()}|${filterShape(req, types)}|${pd.t}|${pd.i}`,
         select: pageFilter(req, ctx, types, { parentId }),
         kinds: searchKindsFor(types),
+        collectionsOnly: isBoxsetOnly(types),
       });
       const items = await itemsFromPreviews(ctx, page.items, { parentId });
       send(req, res, applySort(req, items), page.total, startIndex);
